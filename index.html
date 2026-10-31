@@ -1156,6 +1156,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .sub-win { flex: none; height: 100%; aspect-ratio: 16 / 10; background-repeat: no-repeat; border-right: 2.5px solid #0b0814; box-shadow: 4px 0 12px rgba(0,0,0,.5); }
 .sub-hero .sub-cap, .sub-hero .sub-cap.r, .sub-hero .sub-cap.l { position: relative; left: auto; right: auto; bottom: auto; align-self: center; margin: 0 14px; text-align: left; transform: rotate(-1.5deg); }
 @media (orientation: landscape) and (max-height: 560px) { .sub-hero { height: 96px; } .sub-cap small { display: block; } }
+.skill.passive.hero { border-left-color: #ff6a3a; background: linear-gradient(90deg, rgba(255,106,58,.18), var(--panel)); } .skill.passive.hero b { color: #ffb070; }
 
 </style>
 <div id="app"></div>
@@ -1285,8 +1286,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (GMAX[sid]) res.push({ key: 'gmax', kind: 'gmax', n: s.n + ' Gigamax', pid: GMAX[sid], b: s.b.map((v, i) => Math.round(v * (i === 0 ? 1.3 : 1.15))), t: s.t });
     return res;
   }
-  // Rareté d'un Pokémon possédé : un Légendaire passé Gigamax devient Fabuleux.
-  const rarOf = mon => { const k = RARITY[mon.sid]; return mon.form === 'gmax' && k === 'L' ? 'F' : k; };
+  // Rareté d'un Pokémon possédé : un Légendaire passé Gigamax devient Fabuleux, passé Méga-Évolution, Mythique.
+  const rarOf = mon => { const k = RARITY[mon.sid]; return k !== 'L' || !mon.form ? k : mon.form === 'gmax' ? 'F' : 'M'; };
   const formOf = mon => mon.form ? ultimatesOf(mon.sid).find(f => f.key === mon.form) || null : null;
   function levelCap(mon) {
     if (formOf(mon)) return 100;
@@ -1526,11 +1527,29 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       case 'firstStrike': return `sa première action fait +${v} % de dégâts`;
       case 'copy': return `+${v} % à toutes ses stats`;
       case 'infiltrate': return `ignore ${v} % de la défense adverse, les boucliers et la couverture des lignes`;
+      case 'migraine': return `son attaque de base a ${v} % de chances de libérer une migraine psychique qui met K.O. sur le coup (un boss perd 25 % de ses PV max)`;
       case 'doubleTurn': return `${v} % de chances de rejouer presque aussitôt après avoir agi`;
     }
     return '';
   }
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  // Passifs « héroïques » : des Pokémon emblématiques plus forts que leur rareté (forme précise ou toute la lignée).
+  // form : clé de forme ultime ('mega:0', 'mega:1', 'gmax'), 'base' (sans forme ultime) ou absent (toujours).
+  const HERO = [
+    { sid: 6, form: 'mega:0', n: 'Flamme Bleue Draconique', fx: [F('dmgUp', 30), F('crit', 15), F('lifelink', 12), F('moxie', 10)] },
+    { sid: 6, form: 'mega:1', n: 'Soleil de Feu', fx: [F('typeUp', 35, { t: 10 }), F('aoeUp', 25), F('statusAura', 35, { ail: 4 }), F('firstStrike', 30)] },
+    { sid: 6, form: 'gmax', n: 'Fournaise G-Max', fx: [F('aoeUp', 30), F('dmgUp', 20), F('statusAura', 40, { ail: 4 }), F('hp', 15)] },
+    { sid: 94, form: 'gmax', n: 'Hantise Gigamax', fx: [F('infiltrate', 40), F('timeLock', 150), F('dmgUp', 25), F('statusAura', 25, { ail: 2 }), F('doubleTurn', 15)] },
+    { sid: 248, form: 'mega:0', n: 'Tempête de Sable Absolue', fx: [F('bulwark', 20), F('aoeUp', 30), F('dmgUp', 20), F('teamDr', 10), F('moxie', 8)] },
+    { sid: 248, form: 'base', n: 'Carapace de Roche', fx: [F('hp', 15), F('dmgUp', 12)] },
+    { sid: 247, n: 'Cocon Blindé', fx: [F('bulwark', 15)] }, { sid: 246, n: 'Appétit de Roche', fx: [F('hp', 15)] },
+    { sid: 54, n: 'Migraine', fx: [F('migraine', 10)] }, { sid: 55, n: 'Migraine Psychique', fx: [F('migraine', 15), F('dmgUp', 10)] },
+  ];
+  const heroPassives = mon => HERO.filter(h => h.sid === mon.sid && (!h.form || (h.form === 'base' ? !mon.form : h.form === mon.form)))
+    .map(h => ({ n: h.n, d: cap(h.fx.map(fxText).join(' ; ')) + '.', fx: h.fx, hero: true }));
+  // Passifs complets d'un Pokémon possédé ou adverse : ceux de l'espèce + les passifs héroïques de sa forme.
+  A.passivesOfMon = mon => A.passivesOf(mon.sid).concat(heroPassives(mon));
+  A.heroBoost = mon => (mon.sid === 6 && mon.form) || (mon.sid === 94 && mon.form === 'gmax') || (mon.sid === 248 && mon.form) ? 1.15 : 1;
   const BINARY = new Set(['pure', 'endure', 'cleanseTurn']);
   function finalsOf(sid) { return descendants(sid).filter(id => A.remaining(id) === 0); }
   // Passif d'une espèce : celui de sa forme finale (la plus forte), affaibli pour les formes non évoluées.
@@ -1844,7 +1863,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 </script>
 <script>
 // Généré par tools/arena-power.js : corrections de stats par lignée (racine) mesurées par simulation.
-(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.262,41:1.060,48:0.884,56:0.831,64:0.884,84:0.884,86:0.831,95:1.191,96:0.940,100:0.831,116:0.884,127:0.940,128:0.884,133:0.831,165:0.940,170:0.884,173:0.831,175:0.831,187:0.831,193:0.884,200:0.884,215:0.884,220:0.884,236:0.884,238:0.884,241:0.781,280:0.884,287:0.884,298:1.191,314:0.884,316:0.884,328:0.884,333:0.831,396:0.940,406:0.884,431:0.734,441:0.884,458:0.831,511:0.884,527:0.884,543:0.884,554:0.884,561:0.781,592:0.884,594:0.884,595:0.734,597:1.262,607:0.884,610:0.884,619:0.940,629:0.831,669:0.884,676:0.781,694:0.884,712:1.060,714:0.884,742:0.734,744:0.940,757:0.940,761:0.884,764:0.884,765:0.884,777:0.884,803:0.831,805:1.191,808:1.060,831:0.940,840:1.019,846:0.884,856:1.060,868:0.884,877:0.884,880:0.940,882:0.940,921:0.940,924:0.781,932:1.060,944:0.884,955:0.884,957:0.884,962:0.884,963:1.262,967:0.884,974:0.884,988:0.831,993:0.831,1022:0.781}; })(typeof window !== 'undefined' ? window : globalThis);
+(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.262,41:1.060,48:0.884,56:0.831,64:0.884,84:0.884,86:0.831,95:1.191,96:0.940,100:0.831,116:0.884,127:0.940,128:0.884,133:0.831,165:0.940,170:0.884,173:0.831,175:0.831,187:0.831,193:0.884,200:0.884,215:0.884,220:0.884,236:0.884,238:0.884,241:0.781,280:0.884,287:0.781,298:1.191,314:0.884,316:0.884,328:0.884,333:0.831,396:0.940,406:0.884,431:0.734,441:0.884,458:0.831,511:0.884,527:0.884,543:0.884,554:0.884,561:0.781,592:0.884,594:0.884,595:0.734,597:1.262,607:0.884,610:0.884,619:0.940,629:0.831,669:0.884,676:0.781,694:0.884,712:1.060,714:0.884,742:0.734,744:0.940,757:0.940,761:0.884,764:0.884,765:0.884,777:0.884,803:0.831,805:1.191,831:0.940,840:1.019,846:0.884,856:1.060,868:0.884,877:0.884,880:0.940,882:0.940,921:0.940,924:0.781,932:1.060,944:0.884,955:0.884,957:0.884,962:0.884,963:1.262,967:0.884,974:0.884,988:0.831,993:0.831,1022:0.781}; })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
@@ -1879,7 +1898,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       skills: A.skillsOf(mon.sid), boss: !!(extra && extra.boss), shield: 0, shieldTurns: 0, powMult: form ? 1.1 : 1, passives: {} };
     // Passifs : effets chiffrés cumulés dans u.passives, effets particuliers à part.
     // extra.fx : effets imposés par un mode (thèmes de la Tour Infinie), cumulés aux passifs.
-    const fxList = A.passivesOf(mon.sid).flatMap(p => p.fx || [{ k: p.k, v: p.v }]).concat((extra && extra.fx) || []);
+    const fxList = (A.passivesOfMon ? A.passivesOfMon(mon) : A.passivesOf(mon.sid)).flatMap(p => p.fx || [{ k: p.k, v: p.v }]).concat((extra && extra.fx) || []);
     for (const e of fxList) {
       if (e.k === 'typeUp') (u.typeUp = u.typeUp || []).push(e);
       else if (e.k === 'intimidate') (u.intim = u.intim || []).push(e.stat);
@@ -2039,6 +2058,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
     if (single && b && covered(b, t) && !u.passives.infiltrate) dmg *= COVER[t.row];
     if (b && b.turn > ENRAGE) dmg *= 1 + (b.turn - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
+    // Migraine (Psykokwak, Akwakwak) : l'attaque de base peut déchaîner un pouvoir psychique qui met K.O. sur le coup.
+    if (P.migraine && sk.slot === 0 && rand() * 100 < P.migraine) return { dmg: t.boss ? Math.max(Math.round(dmg), Math.round(t.maxHp * 0.25)) : t.hp + (t.shield || 0), tf, crit, migraine: true };
     return { dmg: Math.max(1, Math.round(dmg)), tf, crit };
   }
 
@@ -2138,7 +2159,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         let total = 0, anyCrit = false, tf = 1;
         for (let h = 0; h < hits && t.alive; h++) {
           const r = damage(u, t, sk, hits > 1 ? 1 / Math.sqrt(hits) * 1.2 : 1, b, sk.target !== 'all');
-          total += r.dmg; anyCrit = anyCrit || r.crit; tf = r.tf;
+          total += r.dmg; anyCrit = anyCrit || r.crit; tf = r.tf; if (r.migraine) useEv.txt += ` Migraine ! ${u.name} déchaîne un pouvoir psychique !`;
           let rest = r.dmg;
           if (t.shield > 0 && !u.passives.infiltrate) { const ab = Math.min(t.shield, rest); t.shield -= ab; rest -= ab; }
           t.hp = Math.max(0, t.hp - rest);
@@ -2432,7 +2453,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     st.crit += add.crit; st.critd += add.critd; st.acc += add.acc; st.res += add.res; st.leech += add.leech;
     // Bonus d'évolution sur une stat.
     for (const [k, v] of Object.entries(A.evoStatBonus(mon.sid))) st[k] = Math.round(st[k] * (1 + v / 100));
-    const m = (mon.shiny ? SHINY_BONUS : 1) * ((opts && opts.mult) || 1) * A.statMult(mon.sid) * (A.rarOf(mon) !== A.RARITY[mon.sid] ? 1.06 : 1) // Gigamax Fabuleux : +6 %
+    const m = (mon.shiny ? SHINY_BONUS : 1) * ((opts && opts.mult) || 1) * A.statMult(mon.sid) * ({ F: 1.06, M: 1.1 }[A.rarOf(mon) !== A.RARITY[mon.sid] ? A.rarOf(mon) : ''] || 1) * (A.heroBoost ? A.heroBoost(mon) : 1) // forme ultime promue (Fabuleux +6 %, Mythique +10 %) ; formes héroïques +15 %
       * (1 + dupeBonus(mon) / 100); // doublons invoqués
     if (m !== 1) for (const k of ['hp', 'atk', 'def', 'spa', 'spd', 'spe']) st[k] = Math.round(st[k] * m);
     // Renfort de Vitesse distinct (Tour Infinie) : sinon les adversaires agiraient presque seuls.
@@ -2754,7 +2775,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const threat = list => list.reduce((a, e) => { const st = statsOf(e.mon, { mult: e.mult }); return a + st.hp / 2 + st.atk + st.def + st.spa + st.spd + st.spe * 1.2; }, 0);
   // Réglage de difficulté par étape, mesuré par simulation (tools/arena-tune.js) : une équipe de référence
   // (tank, soigneur, 2 attaquants) au niveau de l'étape gagne de ~95 % au début à ~70 % à la fin, ~60 % contre les boss.
-  const STAGE_TUNE = [1.28, 1.44, 1.08, 1.29, 1.11, 1.34, 1.14, 1.07, 1.11, 0.93, 1.39, 1.60, 1.06, 1.39, 1.16, 1.47, 1.04, 1.12, 1.26, 1.34, 1.28, 1.22, 1.05, 1.32, 1.06, 1.20, 1.11, 1.02, 1.19, 0.80, 1.54, 1.61, 1.47, 1.61, 2.14, 1.79, 1.59, 1.70, 1.90, 1.60, 2.70, 1.61, 1.46, 1.48, 1.58, 1.22, 1.30, 1.38, 1.14, 1.07, 1.46, 1.48, 1.43, 1.28, 1.40, 1.26, 1.16, 1.24, 1.10, 1.22, 2.23, 1.66, 1.48, 1.51, 1.52, 1.45, 1.39, 1.23, 1.37, 0.91, 1.81, 1.68, 1.31, 1.57, 1.34, 1.22, 1.33, 1.28, 1.20, 1.07, 1.60, 1.19, 1.19, 0.92, 1.23, 1.17, 1.35, 1.20, 1.23, 0.97, 1.49, 1.37, 1.14, 1.21, 1.33, 1.19, 1.58, 1.28, 1.28, 0.92, 2.14, 1.68, 1.51, 1.19, 1.28, 1.50, 1.47, 1.19, 1.32, 1.09, 1.64, 1.49, 1.26, 1.34, 1.06, 1.08, 1.43, 1.06, 1.25, 0.80];
+  const STAGE_TUNE = [1.42, 1.60, 1.20, 1.44, 1.23, 1.49, 1.27, 1.18, 1.17, 0.99, 1.53, 1.71, 1.19, 1.54, 1.31, 1.64, 1.22, 1.28, 1.38, 1.45, 1.46, 1.47, 1.15, 1.49, 1.22, 1.40, 1.23, 1.15, 1.28, 0.90, 1.70, 1.79, 1.61, 1.77, 2.38, 1.98, 1.76, 1.88, 2.03, 1.73, 2.93, 1.84, 1.68, 1.68, 1.70, 1.33, 1.35, 1.56, 1.23, 1.22, 1.58, 1.69, 1.63, 1.42, 1.61, 1.47, 1.33, 1.35, 1.28, 1.32, 2.56, 1.90, 1.61, 1.66, 1.68, 1.60, 1.52, 1.38, 1.53, 1.00, 2.01, 1.85, 1.48, 1.77, 1.44, 1.36, 1.42, 1.44, 1.32, 1.16, 1.63, 1.35, 1.40, 1.05, 1.40, 1.33, 1.46, 1.37, 1.34, 1.13, 1.64, 1.54, 1.34, 1.39, 1.48, 1.28, 1.79, 1.43, 1.43, 0.97, 2.27, 1.86, 1.68, 1.32, 1.43, 1.78, 1.68, 1.32, 1.51, 1.22, 1.83, 1.65, 1.35, 1.46, 1.22, 1.22, 1.53, 1.16, 1.35, 0.88];
   // Renfort progressif de la fin de campagne (jusqu'à +15 % au dernier chapitre), qui compense la force des
   // passifs de Légendaires et Mythiques face à l'équipe de référence du réglage.
   const lateBoost = k => 1 + 0.08 * Math.max(0, k - 40) / (CHAPTERS.length * CHAPTER_STAGES - 41);
@@ -2762,9 +2783,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Trois difficultés : mêmes équipes, plus haut niveau et plus fortes, meilleures récompenses.
   // Un chapitre en Difficile s'ouvre quand son boss est vaincu en Normale ; en Enfer, quand il l'est en Difficile.
   const DIFFS = {
-    normal: { n: 'Normale', lv: 0, mult: 0.9, rew: 1, color: '#35e0ff' },
-    hard: { n: 'Difficile', lv: 5, mult: 1, rew: 2.5, color: '#ff9b3d', prev: 'normal' },
-    hell: { n: 'Enfer', lv: 12, mult: 1.15, rew: 5, color: '#ff3d5a', prev: 'hard' },
+    normal: { n: 'Normale', lv: 0, mult: 0.82, rew: 1, color: '#35e0ff' },
+    hard: { n: 'Difficile', lv: 5, mult: 0.92, rew: 2.5, color: '#ff9b3d', prev: 'normal' },
+    hell: { n: 'Enfer', lv: 12, mult: 1, rew: 5, color: '#ff3d5a', prev: 'hard' },
     // Défi : ouvert quand la campagne Enfer est terminée ; adversaires du mode Difficile, mais équipe limitée
     // à des Pokémon Normaux, Rares et au plus 3 Épiques. Chaque chapitre terminé : 1 Master Ball et 2 Hyper Balls.
     defi: { n: 'Challenge Pokémaniac', short: 'Pokémaniac', lv: 5, mult: 1.2, rew: 2.5, color: '#ff4a5a', prev: 'hell', rule: true },
@@ -2796,13 +2817,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const w = []; for (let j = k - 2; j <= k + 2; j++) if (j >= 0 && j < STAGE_TUNE.length && !isBoss(j)) w.push(Math.log(STAGE_TUNE[j]));
     return Math.exp(w.reduce((a, b) => a + b, 0) / w.length) * lateBoost(k);
   }
-  // Normale ×0,9 · Difficile ×1 (+5 niv.) · Enfer ×1,15 (+12 niv., formes ultimes) : l'Enfer se termine avec
+  // Normale ×0,82 · Difficile ×0,92 (+5 niv.) · Enfer ×1 (+12 niv., formes ultimes), réglage lissé (sans pics) : l'Enfer se termine avec
   // 6 Légendaires niveau max et des runes Légendaires/Mythiques +15.
   function campaignStage(c, i, d) {
     d = d || 'normal';
     const r = stageRoster(c, i), lv = diffLevel(c, i, d), boss = i === CHAPTER_STAGES - 1, P = prog(d);
     return { kind: 'campaign', c, i, d, lv, region: CHAPTERS[c].n, biome: CHAPTERS[c].biome, boss,
-      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: (d === 'normal' ? stageFactor(c, i) : smoothFactor(c, i)) * diffMult(d, c), ultimate: d === 'hell' }),
+      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: smoothFactor(c, i) * diffMult(d, c), ultimate: d === 'hell' }),
       first: !P[c + '-' + i], reward: campaignReward(c, i, !P[c + '-' + i], d) };
   }
   function campaignReward(c, i, first, d) {
@@ -4629,7 +4650,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <button class="btn primary small" data-soul ${!mx && so > 0 ? '' : 'disabled'}>Utiliser une Âme</button></div>
         <p class="muted small">Chaque doublon invoqué donne une Âme de sa lignée. Chaque Âme utilisée éveille toute la lignée (évolutions comprises) : +2, 4, 6, 10, 12, 14, 20, 22, 26 puis 30 % de stats.</p></section>`; })(G.dupesOf(m.sid))}
       <section><h3>Types · faiblesses et résistances</h3>${defenseHtml(monTypes(m))}<div class="row"><button class="btn small" data-chart>Table des types</button></div></section>
-      <section><h3>Compétences · ${roleOf(m.sid).n}</h3><p class="muted small">${roleOf(m.sid).d}</p>${A.skillsOf(m.sid).map(skillHtml).join('')}${A.passivesOf(m.sid).map(p => `<div class="skill passive"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}${m.shiny ? SHINY_PASSIVE : ''}</section>
+      <section><h3>Compétences · ${roleOf(m.sid).n}</h3><p class="muted small">${roleOf(m.sid).d}</p>${A.skillsOf(m.sid).map(skillHtml).join('')}${A.passivesOfMon(m).map(p => `<div class="skill passive ${p.hero ? 'hero' : ''}"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}${m.shiny ? SHINY_PASSIVE : ''}</section>
       <div class="row end"><button class="btn ${s.team.includes(m.uid) ? 'ghost' : 'primary'}" data-team>${s.team.includes(m.uid) ? 'Retirer de l’équipe' : 'Ajouter à l’équipe'}</button></div></div>`;
     bindBack(back);
     const re = () => { monDetail(uidv, back); showNotices(); };
@@ -5677,7 +5698,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
       ${sec('Expérience', '<p>Les combats donnent de l’expérience à l’équipe. Les bonbons S, M, L (Grotte Gourmande) en donnent beaucoup, contre quelques Pokédollars.</p>')}
       ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Amélioration de +0 à +${G.RUNE_MAX}. Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
-      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : les mêmes chapitres, adversaires de +5 / +12 niveaux (×1 / ×1,15 ; l’Enfer se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15) (formes ultimes en Enfer), récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Un chapitre s’ouvre quand son boss est vaincu dans la difficulté précédente.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
+      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : les mêmes chapitres, adversaires de +5 / +12 niveaux (×0,92 / ×1 ; l’Enfer se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15) (formes ultimes en Enfer), récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Un chapitre s’ouvre quand son boss est vaincu dans la difficulté précédente.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
       ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b>, le Pokémon le plus rare de la semaine au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au 6e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
     </div>`;
     bindBack(settingsScreen);
