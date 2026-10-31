@@ -1144,6 +1144,11 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 @media (max-width: 520px) and (orientation: portrait) {
   .tm-sum { grid-template-columns: 1fr; } .tm-power { grid-row: auto; justify-self: start; grid-auto-flow: column; gap: 10px; align-items: baseline; }
 }
+.mon-search { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; }
+.mon-search input { flex: 1; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 2px solid #0b0814; background: #fffdf6; color: #14101c; font: inherit; font-weight: 700; box-shadow: 3px 3px 0 rgba(0,0,0,.5); }
+.mon-search input::placeholder { color: #7a7088; font-weight: 600; }
+.mon-count { flex: none; font-size: 12px; color: var(--muted); font-weight: 700; }
+.mon-card[hidden] { display: none !important; }
 
 </style>
 <div id="app"></div>
@@ -4538,7 +4543,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   function sortMons(list) {
     const ord = k => A.RARITY_ORDER.indexOf(A.rarOf(k));
-    const f = { power: (a, b) => G.powerOf(b) - G.powerOf(a), level: (a, b) => b.lv - a.lv, rarity: (a, b) => ord(b) - ord(a) || G.powerOf(b) - G.powerOf(a), recent: (a, b) => (b.at || 0) - (a.at || 0) }[monFilter.sort];
+    const f = { power: (a, b) => G.powerOf(b) - G.powerOf(a), level: (a, b) => b.lv - a.lv, rarity: (a, b) => ord(b) - ord(a) || G.powerOf(b) - G.powerOf(a), recent: (a, b) => (b.at || 0) - (a.at || 0), name: (a, b) => monName(a).localeCompare(monName(b), 'fr', { sensitivity: 'base' }), namez: (a, b) => monName(b).localeCompare(monName(a), 'fr', { sensitivity: 'base' }) }[monFilter.sort] || ((a, b) => G.powerOf(b) - G.powerOf(a));
     return list.slice().sort(f);
   }
   function monsScreen(pickMode) {
@@ -4547,12 +4552,18 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     app.innerHTML = topbar(pickMode ? 'Choisir un Pokémon' : 'Mes Pokémon') + `<div class="page">
       <div class="filters"><div class="chips">${['all', ...A.RARITY_ORDER].map(k => `<button class="chip ${monFilter.r === k ? 'on' : ''}" data-r="${k}" ${k !== 'all' ? `style="--rc:${rar(k).color}"` : ''}>${k === 'all' ? 'Tous' : rar(k).n}</button>`).join('')}</div>
       <div class="chips">${['all', ...A.ROLE_ORDER].map(k => `<button class="chip ${monFilter.role === k ? 'on' : ''}" data-role="${k}" ${k !== 'all' ? `style="--rc:${A.ROLES[k].color}"` : ''}>${k === 'all' ? 'Tous rôles' : A.ROLES[k].i + ' ' + A.ROLES[k].n}</button>`).join('')}</div>
-      <select id="mon-sort">${[['power', 'Puissance'], ['level', 'Niveau'], ['rarity', 'Rareté'], ['recent', 'Récents']].map(([v, n]) => `<option value="${v}" ${monFilter.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="mon-search"><input type="search" id="mon-q" placeholder="🔍 Rechercher un Pokémon par nom…" value="${esc(monFilter.q || '')}" autocomplete="off"><span class="mon-count" id="mon-count"></span></div>
+      <select id="mon-sort">${[['power', 'Puissance'], ['level', 'Niveau'], ['rarity', 'Rareté'], ['name', 'Nom (A → Z)'], ['namez', 'Nom (Z → A)'], ['recent', 'Récents']].map(([v, n]) => `<option value="${v}" ${monFilter.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="mon-grid">${list.map(m => monCard(m, s.team.includes(m.uid) ? '<i class="in-team">Équipe</i>' : '')).join('') || '<p class="muted">Aucun Pokémon.</p>'}</div></div>`;
     bindBack(pickMode ? pickMode.back : hub);
     app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { monFilter.r = b.dataset.r; monsScreen(pickMode); });
     app.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { monFilter.role = b.dataset.role; monsScreen(pickMode); });
     app.querySelector('#mon-sort').onchange = e => { monFilter.sort = e.target.value; monsScreen(pickMode); };
+    // Recherche par nom (sans tenir compte des accents ni des majuscules), filtrée en direct.
+    const norm = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const q = app.querySelector('#mon-q'), cards = [...app.querySelectorAll('.mon-grid .mon-card')], cnt = app.querySelector('#mon-count');
+    const applyQ = () => { const v = norm(q.value.trim()); monFilter.q = q.value; let n = 0; cards.forEach(c => { const ok = !v || norm(c.querySelector('b').textContent).includes(v); c.hidden = !ok; if (ok) n++; }); cnt.textContent = v ? `${n} résultat${n > 1 ? 's' : ''}` : `${cards.length} Pokémon`; };
+    q.oninput = applyQ; applyQ();
     app.querySelectorAll('[data-uid]').forEach(b => b.onclick = () => pickMode ? pickMode.pick(b.dataset.uid) : monDetail(b.dataset.uid, () => monsScreen()));
   }
 
