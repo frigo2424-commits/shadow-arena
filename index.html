@@ -1248,7 +1248,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     249: 'heal', 245: 'heal', 492: 'heal', // Lugia (gardien des mers qui régénère l'équipe), Suicune (purifie), Shaymin (Gracidée)
     250: 'dps', 888: 'dps', 493: 'dps', 494: 'dps', 1020: 'dps', 160: 'dps', 376: 'dps', // Ho-Oh, Zacian, Arceus, Victini, Feu-Perçant, Aligatueur, Métalosse
     385: 'sup', 380: 'sup', 490: 'sup', 481: 'sup', 1016: 'sup', 788: 'sup', // Jirachi, Latias, Manaphy, Créfollet, Favianos, Tokopisco
-    648: 'ctrl', 480: 'ctrl', 144: 'ctrl', 1025: 'ctrl' }; // Meloetta (chant), Créhelf (amnésie), Artikodin (gel), Pêchaminus (chaînes)
+    648: 'ctrl', 480: 'ctrl', 144: 'ctrl', 1025: 'ctrl', // Meloetta (chant), Créhelf (amnésie), Artikodin (gel), Pêchaminus (chaînes)
+    // Répartition équitable des rôles chez les Légendaires, Fabuleux et Mythiques (environ 50 % d'attaquants).
+    260: 'tank', 383: 'tank', 791: 'tank', 486: 'tank', 895: 'tank', 992: 'tank', 896: 'tank', 485: 'tank', 787: 'tank', // Laggron, Groudon, Solgaleo, Regigigas, Regidrago, Paume-de-Fer, Blizzeval, Heatran, Tokotoro
+    491: 'ctrl', 483: 'ctrl', 646: 'ctrl', 243: 'ctrl', 145: 'ctrl', 792: 'ctrl', 720: 'ctrl', 386: 'ctrl', 905: 'ctrl', 642: 'ctrl', 1015: 'ctrl', // Darkrai, Dialga, Kyurem, Raikou, Électhor, Lunala, Hoopa, Deoxys, Amovénus, Fulguris, Fortusimia
+    801: 'sup', 716: 'sup', 785: 'sup', 786: 'sup', 641: 'sup', // Magearna, Xerneas, Tokorico, Tokopiyon, Boréas
+    730: 'heal', 893: 'heal' }; // Oratoria, Zarude
   const descendants = id => [id, ...evolutionsOf(id).flatMap(descendants)];
   const roleCache = {};
   function roleOf(sid) {
@@ -2775,7 +2780,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const threat = list => list.reduce((a, e) => { const st = statsOf(e.mon, { mult: e.mult }); return a + st.hp / 2 + st.atk + st.def + st.spa + st.spd + st.spe * 1.2; }, 0);
   // Réglage de difficulté par étape, mesuré par simulation (tools/arena-tune.js) : une équipe de référence
   // (tank, soigneur, 2 attaquants) au niveau de l'étape gagne de ~95 % au début à ~70 % à la fin, ~60 % contre les boss.
-  const STAGE_TUNE = [1.42, 1.60, 1.20, 1.44, 1.23, 1.49, 1.27, 1.18, 1.17, 0.99, 1.53, 1.71, 1.19, 1.54, 1.31, 1.64, 1.22, 1.28, 1.38, 1.45, 1.46, 1.47, 1.15, 1.49, 1.22, 1.40, 1.23, 1.15, 1.28, 0.90, 1.70, 1.79, 1.61, 1.77, 2.38, 1.98, 1.76, 1.88, 2.03, 1.73, 2.93, 1.84, 1.68, 1.68, 1.70, 1.33, 1.35, 1.56, 1.23, 1.22, 1.58, 1.69, 1.63, 1.42, 1.61, 1.47, 1.33, 1.35, 1.28, 1.32, 2.56, 1.90, 1.61, 1.66, 1.68, 1.60, 1.52, 1.38, 1.53, 1.00, 2.01, 1.85, 1.48, 1.77, 1.44, 1.36, 1.42, 1.44, 1.32, 1.16, 1.63, 1.35, 1.40, 1.05, 1.40, 1.33, 1.46, 1.37, 1.34, 1.13, 1.64, 1.54, 1.34, 1.39, 1.48, 1.28, 1.79, 1.43, 1.43, 0.97, 2.27, 1.86, 1.68, 1.32, 1.43, 1.78, 1.68, 1.32, 1.51, 1.22, 1.83, 1.65, 1.35, 1.46, 1.22, 1.22, 1.53, 1.16, 1.35, 0.88];
+  const STAGE_TUNE = [1.58, 1.99, 1.16, 1.64, 1.26, 1.85, 1.40, 1.21, 1.19, 1.12, 1.85, 2.24, 1.07, 1.76, 1.34, 2.09, 1.15, 1.29, 1.59, 1.56, 1.65, 1.63, 1.07, 1.79, 1.24, 1.59, 1.29, 1.12, 1.37, 0.98, 2.03, 1.99, 1.52, 1.86, 3.34, 2.24, 1.72, 2.02, 2.22, 2.03, 4.45, 1.84, 1.59, 1.86, 2.09, 1.30, 1.44, 1.88, 1.20, 1.35, 1.81, 1.90, 1.72, 1.43, 1.97, 1.62, 1.35, 1.50, 1.10, 1.46, 3.87, 2.01, 1.50, 1.78, 1.94, 1.79, 1.64, 1.37, 1.59, 1.12, 2.67, 2.14, 1.38, 2.06, 1.51, 1.37, 1.60, 1.63, 1.32, 1.28, 2.14, 1.51, 1.54, 0.93, 1.34, 1.36, 1.72, 1.29, 1.12, 1.15, 2.10, 1.76, 1.34, 1.55, 1.68, 1.28, 2.40, 1.36, 1.12, 1.04, 3.21, 2.10, 1.83, 1.18, 1.41, 2.17, 1.97, 1.23, 1.50, 1.35, 2.28, 1.93, 1.35, 1.72, 1.13, 1.20, 1.94, 1.16, 1.55, 1.01];
   // Renfort progressif de la fin de campagne (jusqu'à +15 % au dernier chapitre), qui compense la force des
   // passifs de Légendaires et Mythiques face à l'équipe de référence du réglage.
   const lateBoost = k => 1 + 0.08 * Math.max(0, k - 40) / (CHAPTERS.length * CHAPTER_STAGES - 41);
@@ -2813,7 +2818,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // de difficulté n'amplifie pas les pics d'une étape isolée.
   function smoothFactor(c, i) {
     const k = c * CHAPTER_STAGES + i, isBoss = j => j % CHAPTER_STAGES === CHAPTER_STAGES - 1;
-    if (isBoss(k)) return Math.min(STAGE_TUNE[k], 1.6) * lateBoost(k);
+    if (isBoss(k)) return Math.min(STAGE_TUNE[k], 1.15) * lateBoost(k); // boss plafonnés : pas de mur isolé
     const w = []; for (let j = k - 2; j <= k + 2; j++) if (j >= 0 && j < STAGE_TUNE.length && !isBoss(j)) w.push(Math.log(STAGE_TUNE[j]));
     return Math.exp(w.reduce((a, b) => a + b, 0) / w.length) * lateBoost(k);
   }
