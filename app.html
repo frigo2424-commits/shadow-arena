@@ -1099,6 +1099,14 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .rotate-hint button { margin-left: auto; border: 0; background: #14101c; color: #fff; border-radius: 8px; padding: 6px 10px; font-weight: 800; cursor: pointer; }
 .fs-btn { margin-left: auto; font-size: 17px; } .topbar .fs-btn + .res { margin-left: 8px; }
 .page section > h3:first-child { justify-self: start; width: max-content; max-width: 100%; }
+/* Illustrations entières : l'image n'est jamais rognée ; on ne fait défiler que si elle est plus large que l'écran */
+.pano { container-type: size; display: flex; align-items: center; background: radial-gradient(circle at 50% 50%, #241840, #0b0716); }
+.pano-in { flex: none; min-width: 0; height: min(100cqh, 100cqw * 768 / 1408); aspect-ratio: 1408 / 768; margin: 0 auto; }
+.pano-in > img { object-fit: contain; }
+@media (orientation: portrait) { .pano-in { height: 100cqh; } }
+.pano::before { content: ''; position: absolute; inset: -30px; background: var(--pbg) center / cover no-repeat; filter: blur(22px) brightness(.45) saturate(1.2); pointer-events: none; }
+.pano-in { position: relative; z-index: 1; box-shadow: 0 0 30px rgba(0,0,0,.6); }
+@media (orientation: landscape) { .pano-hint { display: none; } }
 
 </style>
 <div id="app"></div>
@@ -4205,6 +4213,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const subHero = title => { const a = SUB_ART[title]; return a ? `<div class="sub-hero" style="background-image:url(sprites/${a[0]}.webp);background-position:${a[1]}"><span class="sub-cap ${a[3] ? 'l' : 'r'}"><b>${esc(title)}</b><small>${esc(a[2])}</small></span></div>` : ''; };
   // Plein écran (et paysage verrouillé si le téléphone le permet) ; installation sur l'écran d'accueil.
   const isStandalone = () => { try { return matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches || navigator.standalone; } catch (e) { return false; } };
+  const canFull = () => document.fullscreenEnabled !== false && !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen) && document.fullscreenEnabled !== undefined;
   const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
   function toggleFullscreen() {
     if (isFull()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
@@ -4217,7 +4226,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
   function topbar(title, back) {
     const s = S(); Music.play('menu');
-    return `<header class="topbar">${back !== false ? `<button class="btn icon-btn" data-back aria-label="Retour">‹</button>` : `<button class="btn icon-btn gear-btn" data-settings aria-label="Paramètres" title="Paramètres">⚙</button>`}<h1>${esc(title)}</h1>${back === false && !isStandalone() ? '<button class="btn icon-btn fs-btn" data-fs aria-label="Plein écran" title="Plein écran">⛶</button>' : ''}
+    return `<header class="topbar">${back !== false ? `<button class="btn icon-btn" data-back aria-label="Retour">‹</button>` : `<button class="btn icon-btn gear-btn" data-settings aria-label="Paramètres" title="Paramètres">⚙</button>`}<h1>${esc(title)}</h1>${back === false && !isStandalone() && canFull() ? '<button class="btn icon-btn fs-btn" data-fs aria-label="Plein écran" title="Plein écran">⛶</button>' : ''}
       <div class="res"><span title="Gemmes">✦ ${fmt(s.gems)}</span><span title="Pokédollars">₽ ${fmt(s.gold)}</span></div></header>${back !== false ? subHero(title) : ''}`;
   }
   // Retour : bouton en haut, gros bouton en bas de page, et bouton retour du téléphone / navigateur
@@ -4401,17 +4410,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const page = (n, title, svg, spots, extra) => `<section class="scene" data-page="${n}"><div class="scene-art">${svg}${extra || ''}${spots}</div><h2 class="scene-title">${title}</h2></section>`;
     app.innerHTML = topbar('Shadow Arena', false) + `<div class="hub2">
       <div class="scenes">
-        ${page(0, 'Centre Pokémon', `<div class="pano" data-start=".3"><div class="pano-in"><img src="sprites/centre.webp" alt="" draggable="false">${spot('mons', 'Pokémon', `PC · ${s.mons.length} possédés`, itemIcon('poke-radar'), 6, 38) +
+        ${page(0, 'Centre Pokémon', `<div class="pano" style="--pbg:url(sprites/centre.webp)" data-start=".3"><div class="pano-in"><img src="sprites/centre.webp" alt="" draggable="false">${spot('mons', 'Pokémon', `PC · ${s.mons.length} possédés`, itemIcon('poke-radar'), 6, 38) +
           spot('team', 'Équipe', `Soins · ${team.length} / ${G.TEAM_SIZE}`, itemIcon('exp-share'), 33, 52) +
           spot('bag', 'Inventaire', `Sac · ${s.runes.length} runes`, itemIcon('rare-candy'), 4, 70) +
           spot('crucible', 'Creuset runique', `${fmt(s.shards || 0)} éclats`, itemIcon('crucible'), 75, 46, 0, 'c-violet') +
           spot('shop', 'Boutique', 'Offres en ₽ · 4 / jour', itemIcon('shop'), 58, 33, 0, 'c-gold')}</div></div>`, '')}
-        ${page(1, 'Aventure', `<div class="pano" data-start=".42"><div class="pano-in"><img src="sprites/aventure.webp" alt="" draggable="false">${spot('campaign', 'Campagne', `${done} / ${G.CHAPTERS.length * G.CHAPTER_STAGES} étapes`, itemIcon('poke-ball'), 44, 80, 0, 'c-violet') +
+        ${page(1, 'Aventure', `<div class="pano" style="--pbg:url(sprites/aventure.webp)" data-start=".42"><div class="pano-in"><img src="sprites/aventure.webp" alt="" draggable="false">${spot('campaign', 'Campagne', `${done} / ${G.CHAPTERS.length * G.CHAPTER_STAGES} étapes`, itemIcon('poke-ball'), 44, 80, 0, 'c-violet') +
           spot('arena', 'Arène', `${tier[0]} · ${s.arena.tickets} combats`, itemIcon('gold-bottle-cap'), 80, 46, 0, 'c-magenta') +
           spot('dungeons', 'Donjons', 'Grotte · 5 donjons', itemIcon('hard-stone'), 33, 50, 0, 'c-cyan') +
           spot('maniac', 'Pokémaniac', G.diffOpen('defi') ? `Challenge · ${G.CHAPTERS.filter((_, c) => G.prog('defi')[c + '-' + (G.CHAPTER_STAGES - 1)]).length} / ${G.CHAPTERS.length}` : '🔒 Après l’Enfer', itemIcon('maniac'), 57, 58, 0, 'c-maniac' + (G.diffOpen('defi') ? '' : ' locked')) +
           spot('tower', 'Tour Infinie', G.towerOpen() ? `Étage ${((s.tower || {}).best || 0) + 1} / ${G.TOWER_FLOORS}` : '🔒 Fin de campagne', itemIcon('trophy'), 8, 44, 0, 'c-gold' + (G.towerOpen() ? '' : ' locked'))}</div><div class="pano-hint">⟷ Glisse pour explorer la route</div></div>`, '')}
-        ${page(2, 'Collection', `<div class="pano" data-start=".45"><div class="pano-in"><img src="sprites/collection.webp" alt="" draggable="false">${
+        ${page(2, 'Collection', `<div class="pano" style="--pbg:url(sprites/collection.webp)" data-start=".45"><div class="pano-in"><img src="sprites/collection.webp" alt="" draggable="false">${
           spot('achievements', 'Succès', ach ? `${ach} à récupérer` : 'Trophées', itemIcon('trophy'), 10, 47, ach, ach ? 'c-gold glow' : 'c-gold') +
           spot('pokedex', 'Pokédex', `${s.dex.length} / ${total}`, itemIcon('poke-radar'), 46, 47, 0, 'c-cyan') +
           spot('summon', 'Invocation', `${balls} Ball${balls > 1 ? 's' : ''}`, ballHtml('master', 'tiny'), 80, 64, 0, 'c-violet')}</div></div>`, '')}
@@ -4720,7 +4729,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <section><h3>Combat</h3>${tog('auto', auto, 'Combat automatique par défaut', 'Les combats démarrent en mode automatique.')}
         <div class="set-row"><div><b>Vitesse des combats</b><span class="muted small">Vitesse d’animation par défaut.</span></div><div class="seg">${[1, 2, 3].map(v => `<button class="${speed === v ? 'on' : ''}" data-spd="${v}">×${v}</button>`).join('')}</div></div></section>
       <section><h3>Application</h3>
-        <button class="set-link" data-fs2><span>⛶</span><div><b>${isFull() ? 'Quitter le plein écran' : 'Plein écran'}</b><span class="muted small">Cache les barres et passe en paysage si ton téléphone le permet.</span></div><i>›</i></button>
+        ${canFull() ? '' : '<p class="muted small">Le plein écran n’est pas disponible dans cette fenêtre (application Claude).</p>'}<button class="set-link" data-fs2 ${canFull() ? '' : 'hidden'}><span>⛶</span><div><b>${isFull() ? 'Quitter le plein écran' : 'Plein écran'}</b><span class="muted small">Cache les barres et passe en paysage si ton téléphone le permet.</span></div><i>›</i></button>
         ${installEvt ? '<button class="set-link" data-install><span>📲</span><div><b>Installer sur l’écran d’accueil</b><span class="muted small">Une icône Shadow Arena, lancement en plein écran comme une vraie application.</span></div><i>›</i></button>' : `<p class="muted small">${isStandalone() ? 'Le jeu est installé comme une application.' : 'Pour une icône sur ton téléphone et un vrai plein écran : ouvre la version application du jeu dans Chrome, puis menu ⋮ → « Installer l’application » (ou « Ajouter à l’écran d’accueil »).'}</p>`}</section>
       <section><h3>Partie</h3>
         <button class="set-link" data-go-save><span>💾</span><div><b>Sauvegarde</b><span class="muted small">Emplacements, sauvegarde en ligne, code de transfert.</span></div><i>›</i></button>
