@@ -1149,6 +1149,13 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .mon-search input::placeholder { color: #7a7088; font-weight: 600; }
 .mon-count { flex: none; font-size: 12px; color: var(--muted); font-weight: 700; }
 .mon-card[hidden] { display: none !important; }
+/* Bandeau des sous-menus v2 : fenêtre cadrée + fond flouté */
+.sub-hero { display: flex; align-items: stretch; gap: 0; background: #0b0716 !important; isolation: isolate; height: clamp(120px, 28vw, 170px); }
+.sub-hero::before { content: ''; position: absolute; inset: -20px; z-index: -1; background: var(--sbg) center / cover no-repeat; filter: blur(16px) brightness(.45) saturate(1.2); }
+.sub-hero::after { display: none; }
+.sub-win { flex: none; height: 100%; aspect-ratio: 16 / 10; background-repeat: no-repeat; border-right: 2.5px solid #0b0814; box-shadow: 4px 0 12px rgba(0,0,0,.5); }
+.sub-hero .sub-cap, .sub-hero .sub-cap.r, .sub-hero .sub-cap.l { position: relative; left: auto; right: auto; bottom: auto; align-self: center; margin: 0 14px; text-align: left; transform: rotate(-1.5deg); }
+@media (orientation: landscape) and (max-height: 560px) { .sub-hero { height: 96px; } .sub-cap small { display: block; } }
 
 </style>
 <div id="app"></div>
@@ -4245,14 +4252,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 
   // ---------- Barre du haut ----------
   const Music = window.ArenaMusic || { play() {}, fanfare() {}, setOn() {}, on: false };
-  // Bandeau illustré des sous-menus : la zone correspondante des grandes illustrations de l'accueil.
-  const SUB_ART = { // [illustration, position (zone centrée), sous-titre, légende à gauche ?]
-    'Mes Pokémon': ['centre', '0% 45%', 'Accès PC · Système de gestion'], 'Choisir un Pokémon': ['centre', '0% 45%', 'Accès PC'],
-    'Équipe': ['centre', '30% 60%', 'Soins · Infirmière Joëlle'], 'Inventaire': ['centre', '0% 92%', 'Sac d’inventaire'], 'Runes': ['centre', '100% 65%', 'Centre de fusion de runes', 1],
-    'Campagne': ['aventure', '40% 92%', 'Route 201 · La grande aventure'], 'Arène de l’Ombre': ['aventure', '100% 45%', 'Arène de Célestia', 1], 'Tour Infinie': ['aventure', '0% 35%', 'La Tour sans fin'],
-    'Succès': ['collection', '0% 40%', 'Vos exploits sont écrits'], 'Pokédex': ['collection', '55% 48%', 'Complétez votre quête Pokédex', 1], 'Règles': ['collection', '55% 22%', 'Le guide du dresseur', 1],
+  // Bandeau illustré des sous-menus : une fenêtre cadrée sur la zone de l'illustration (point focal + zoom),
+  // le reste du bandeau reprend l'image floutée, avec la légende façon bande dessinée.
+  const SUB_ART = { // [illustration, x focal, y focal (0 à 1), sous-titre, zoom]
+    'Mes Pokémon': ['centre', .12, .5, 'Accès PC · Système de gestion', 2.4], 'Choisir un Pokémon': ['centre', .12, .5, 'Accès PC', 2.4],
+    'Équipe': ['centre', .375, .6, 'Soins · Infirmière Joëlle', 2.5], 'Inventaire': ['centre', .1, .8, 'Sac d’inventaire', 2.6], 'Runes': ['centre', .84, .62, 'Centre de fusion de runes', 2.2],
+    'Campagne': ['aventure', .32, .8, 'Route 201 · La grande aventure', 2.4], 'Arène de l’Ombre': ['aventure', .9, .45, 'Arène de Célestia', 2.2], 'Tour Infinie': ['aventure', .14, .42, 'La Tour sans fin', 1.9],
+    'Succès': ['collection', .13, .5, 'Vos exploits sont écrits', 2.2], 'Pokédex': ['collection', .55, .5, 'Complétez votre quête Pokédex', 2.2], 'Règles': ['collection', .52, .3, 'Le guide du dresseur', 2],
   };
-  const subHero = title => { const a = SUB_ART[title]; return a ? `<div class="sub-hero" style="background-image:url(sprites/${a[0]}.webp);background-position:${a[1]}"><span class="sub-cap ${a[3] ? 'l' : 'r'}"><b>${esc(title)}</b><small>${esc(a[2])}</small></span></div>` : ''; };
+  const SUB_RATIO = 1.6, IMG_RATIO = 768 / 1408; // fenêtre 16:10, illustrations 1408×768
+  const subHero = title => {
+    const a = SUB_ART[title]; if (!a) return '';
+    const [img, fx, fy, sub, z] = a, zy = z * IMG_RATIO * SUB_RATIO, cl = v => Math.max(0, Math.min(100, v * 100));
+    const px = cl((fx * z - 0.5) / (z - 1)), py = cl((fy * zy - 0.5) / (zy - 1)), url = `sprites/${img}.webp`;
+    return `<div class="sub-hero" style="--sbg:url(${url})"><div class="sub-win" style="background-image:url(${url});background-size:${z * 100}% auto;background-position:${px}% ${py}%"></div><span class="sub-cap"><b>${esc(title)}</b><small>${esc(sub)}</small></span></div>`;
+  };
   // Plein écran (et paysage verrouillé si le téléphone le permet) ; installation sur l'écran d'accueil.
   const isStandalone = () => { try { return matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches || navigator.standalone; } catch (e) { return false; } };
   const canFull = () => document.fullscreenEnabled !== false && !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen) && document.fullscreenEnabled !== undefined;
