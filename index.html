@@ -1209,6 +1209,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .secret-pick.wait .secret-mon { pointer-events: none; filter: saturate(.6) brightness(.85); }
 .secret-mon.on { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,201,74,.55); transform: translateY(-3px); }
 .secret-ok { justify-self: center; min-width: 200px; margin-top: 4px; }
+.form-cat { margin: 4px 0 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,201,74,.12); border: 1px solid rgba(255,201,74,.4); color: #ffe39a; }
 
 </style>
 <div id="app"></div>
@@ -1812,6 +1813,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const key = role + ':' + out.map(k => k.recipe).join('/') + ':' + tags.join('/'); // unicité des mécaniques, quel que soit le type
       if (!speciesKeys.has(key) || salt === 39) { speciesKeys.add(key); kit.splice(0, 3, ...out); break; }
     }
+    // Spécialités de stat : un Pokémon dont la Vitesse, les PV ou la Défense dominent son offensive frappe avec cette
+    // stat sur l'une de ses compétences (s'il n'en a pas déjà une) : les rapides et les endurants en tirent parti.
+    if (!kit.some(k => k.scale)) {
+      const b = s.b, off = Math.max(b[1], b[3]), wall = Math.max(b[2], b[4]);
+      const want = ['dps', 'ctrl', 'sup'].includes(role) && b[5] >= 100 && b[5] >= off ? 'spe'
+        : ['tank', 'heal'].includes(role) && b[0] >= 95 && b[0] >= off ? 'hp'
+        : ['tank', 'heal'].includes(role) && wall >= 95 && wall >= off + 10 ? 'def'
+        : role === 'dps' && b[0] >= 110 && b[0] > off ? 'hp' : null;
+      const k = want && (kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim && x.slot === 0) || kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim));
+      if (k) { k.scale = want; k.pow = Math.round(k.pow * (want === 'spe' ? 0.92 : 1.05)); k.statScale = true; }
+    }
     baseCache[sid] = kit.map(k => Object.assign({}, k));
     // Bonus d'évolution : chaque évolution renforce une compétence (+15 %) ou une stat (+10 %).
     for (const bo of evoBonuses(sid)) if (bo.kind === 'skill') {
@@ -1829,7 +1841,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const tgt = k.target === 'all' ? 'à tous les ennemis' : k.aim === 'back' ? 'à l’ennemi le plus affaibli de la ligne Arrière (ignore la protection de l’Avant)' : k.aim === 'mid' ? 'à l’ennemi le plus affaibli de la ligne Milieu' : k.aim === 'strong' ? 'à l’ennemi à la plus forte Attaque ou Atq. Spé (où qu’il soit)' : k.aim === 'spread' ? 'à des ennemis au hasard, où qu’ils soient' : 'à un ennemi';
     if (k.pow && (k.target === 'enemy' || k.target === 'all')) {
       const hits = k.hits ? ` en ${k.hits[0]} coups` : '';
-      const base = k.scale === 'spe' ? ', selon sa Vitesse' : k.scale === 'def' ? ', selon sa Défense' : k.scale === 'hp' ? ', selon ses PV max' : '';
+      const base = k.scale === 'spe' ? ', selon sa Vitesse' : k.scale === 'def' ? ', selon sa Défense' : k.scale === 'hp' ? ', selon ses PV max' : k.c === 2 ? ', selon son Attaque' : ', selon son Atq. Spé';
       parts.push(`Inflige des dégâts de type ${T} ${tgt}${hits} (puissance ${k.pow}${k.hits ? ' par coup' : ''}${base}).`);
     }
     if (k.aim === 'strong' && !k.pow) parts.push('Vise l’ennemi à la plus forte Attaque ou Atq. Spé, où qu’il soit.');
@@ -1937,6 +1949,19 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const bonusText = (b, kit) => b.kind === 'stat' ? `+${b.pct} % ${de(STAT_LBL[b.stat])}` : `compétence ${['I', 'II', 'III'][b.slot]}${kit && kit[b.slot] ? ' (' + kit[b.slot].n + ')' : ''} renforcée de +${b.pct} %`;
   A.evoBonuses = evoBonuses; A.evoPlan = evoPlan; A.evoStatBonus = evoStatBonus; A.evoBonusText = bonusText;
   A.skillsOf = skillsOf;
+  // Compétences d'un Pokémon précis : une forme ultime qui change de spécialité (Méga-Mewtwo X devient physique,
+  // Méga-Dracolosse spécial…) fait basculer ses compétences d'Attaque en Atq. Spé, ou l'inverse.
+  const FORM_CAT = { '6:mega:0': 2 }; // Méga-Dracaufeu X : Attaque et Atq. Spé égales, spécialisé physique (Griffe Dragon, Boutefeu)
+  const formKits = {};
+  A.formCat = mon => { const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, f = mon.form && A.formOf(mon); if (!f) return c0;
+    return FORM_CAT[mon.sid + ':' + mon.form] || (f.b[1] > f.b[3] ? 2 : f.b[1] < f.b[3] ? 3 : c0); };
+  A.skillsOfMon = mon => {
+    const kit = skillsOf(mon.sid); if (!mon.form) return kit;
+    const key = mon.sid + ':' + mon.form; if (formKits[key]) return formKits[key];
+    const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, c1 = A.formCat(mon);
+    return (formKits[key] = c1 === c0 ? kit : kit.map(k => { if (!k.pow || k.scale || k.c !== c0) return k;
+      const x = Object.assign({}, k, { c: c1 }); x.d = describe(x) + (k.evoUp ? ` Renforcée par l’évolution (+${k.evoUp} %).` : ''); return x; }));
+  };
   A.statMult = statMult;
   A.passivesOf = passivesOf;
   A.skillTier = tierOf;
@@ -1946,7 +1971,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 </script>
 <script>
 // Généré par tools/arena-power.js : corrections de stats par lignée (racine) mesurées par simulation.
-(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,69:0.940,77:0.940,84:0.831,95:1.338,100:0.831,114:1.060,116:0.884,123:0.884,127:0.940,128:0.831,140:0.940,177:0.884,193:0.884,200:0.884,214:0.940,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.831,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,403:0.940,406:0.940,418:0.884,427:0.940,431:0.781,436:1.124,441:0.940,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,527:0.734,529:0.940,532:0.940,539:0.884,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.831,585:0.940,595:0.831,597:1.191,607:0.884,610:0.884,615:0.940,616:0.831,619:0.940,622:0.940,676:0.781,677:0.831,679:1.124,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,747:1.060,757:0.884,766:0.940,777:0.884,778:0.940,779:0.940,796:0.940,803:0.884,805:1.262,837:1.060,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.191,967:0.940,973:0.884,974:0.940,978:0.940,986:0.940,988:0.831,989:0.940,993:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
+(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,77:0.940,84:0.831,95:1.060,100:0.781,114:1.060,116:0.940,123:0.884,127:0.940,128:0.831,177:0.940,190:0.940,193:0.884,200:0.884,214:0.940,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.884,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,418:0.884,427:0.940,431:0.734,436:1.124,441:0.940,449:1.060,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,524:1.060,527:0.734,529:0.940,532:0.940,539:0.940,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.831,585:0.940,595:0.831,597:1.262,607:0.940,610:0.940,615:0.884,616:0.831,619:0.940,669:0.940,676:0.734,677:0.831,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,757:0.884,766:0.940,777:0.884,779:0.940,803:0.884,805:1.191,837:1.124,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,932:1.060,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.060,967:0.884,973:0.884,974:0.940,977:1.124,978:0.940,986:0.940,988:0.831,989:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
@@ -1981,7 +2006,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const u = { uid: mon.uid || side + idx, mon, side, idx, name: (form ? form.n : s.n) + (mon.corrupt ? ' corrompu' : ''), types: form ? form.t : s.t, level: mon.lv, role, taunt: null,
       row: (extra && ROWS.includes(extra.row) && extra.row) || DEFAULT_ROW[role] || 'mid',
       st: stats, maxHp: Math.round(stats.hp * HP_MULT), ap: rand() * 200, cd: [0, 0, 0], buffs: [], ail: null, alive: true,
-      skills: A.skillsOf(mon.sid), boss: !!(extra && extra.boss), shield: 0, shieldTurns: 0, powMult: form ? 1.1 : 1, passives: {} };
+      skills: A.skillsOfMon ? A.skillsOfMon(mon) : A.skillsOf(mon.sid), boss: !!(extra && extra.boss), shield: 0, shieldTurns: 0, powMult: form ? 1.1 : 1, passives: {} };
     // Passifs : effets chiffrés cumulés dans u.passives, effets particuliers à part.
     // extra.fx : effets imposés par un mode (thèmes de la Tour Infinie), cumulés aux passifs.
     const fxList = (A.passivesOfMon ? A.passivesOfMon(mon) : A.passivesOf(mon.sid)).flatMap(p => p.fx || [{ k: p.k, v: p.v }]).concat((extra && extra.fx) || []);
@@ -4953,7 +4978,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <button class="btn primary small" data-soul ${!mx && so > 0 ? '' : 'disabled'}>Utiliser une Âme</button></div>
         <p class="muted small">Chaque doublon invoqué donne une Âme de sa lignée. Chaque Âme utilisée éveille toute la lignée (évolutions comprises) : +2, 4, 6, 10, 12, 14, 20, 22, 26 puis 30 % de stats.</p></section>`; })(G.dupesOf(m.sid))}
       <section><h3>Types · faiblesses et résistances</h3>${defenseHtml(monTypes(m))}<div class="row"><button class="btn small" data-chart>Table des types</button></div></section>
-      <section><h3>Compétences · ${roleOf(m.sid).n}</h3><p class="muted small">${roleOf(m.sid).d}</p>${A.skillsOf(m.sid).map(skillHtml).join('')}${A.passivesOfMon(m).map(p => `<div class="skill passive ${p.hero ? 'hero' : ''}"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}${m.shiny ? SHINY_PASSIVE : ''}</section>
+      <section><h3>Compétences · ${roleOf(m.sid).n}</h3><p class="muted small">${roleOf(m.sid).d}</p>${m.form && A.formCat(m) !== (sp(m.sid).b[1] >= sp(m.sid).b[3] ? 2 : 3) ? `<p class="small form-cat">⚡ ${esc(A.formOf(m).n || 'Forme ultime')} : spécialisé en ${A.formCat(m) === 2 ? 'Attaque' : 'Atq. Spé'}, ses compétences s’adaptent.</p>` : ''}${A.skillsOfMon(m).map(skillHtml).join('')}${A.passivesOfMon(m).map(p => `<div class="skill passive ${p.hero ? 'hero' : ''}"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}${m.shiny ? SHINY_PASSIVE : ''}</section>
       <div class="row end"><button class="btn ${s.team.includes(m.uid) ? 'ghost' : 'primary'}" data-team>${s.team.includes(m.uid) ? 'Retirer de l’équipe' : 'Ajouter à l’équipe'}</button></div></div>`;
     bindBack(back);
     const re = () => { monDetail(uidv, back); showNotices(); };
@@ -4997,7 +5022,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const row = ([k, l]) => { const d = st1[k] - st0[k]; return `<tr><td>${l}</td><td>${fmt(st0[k])}</td><td>→</td><td><b>${fmt(st1[k])}</b></td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d ? fmt(d) : '='}</td></tr>`; };
     const r0 = A.rarOf(m), r1 = A.rarOf(after), t0 = monTypes(m), t1 = monTypes(after);
     const pas0 = A.passivesOfMon(m).map(p => p.n), gained = A.passivesOfMon(after).filter(p => !pas0.includes(p.n) || p.hero);
-    const bonus = ult ? 'Toutes les compétences : +10 % de puissance' : (b => b ? A.evoBonusText(b, A.skillsOf(to.sid)) : '')(A.evoBonuses(to.sid).slice(-1)[0]);
+    const catSwap = ult && A.formCat(after) !== A.formCat(m) ? ` · spécialité : ${A.formCat(m) === 2 ? 'Attaque' : 'Atq. Spé'} → ${A.formCat(after) === 2 ? 'Attaque' : 'Atq. Spé'} (compétences adaptées)` : '';
+    const bonus = ult ? 'Toutes les compétences : +10 % de puissance' + catSwap : (b => b ? A.evoBonusText(b, A.skillsOf(to.sid)) : '')(A.evoBonuses(to.sid).slice(-1)[0]);
     const costTxt = ult ? `${cost.n} ${f.kind === 'gmax' ? 'Particules Dynamax' : 'Méga-Cristaux'} (tu en as ${s.items[cost.item] || 0}) · ${fmt(cost.gold)} ₽` : `${cost.crystals} cristaux ${esc(G.TYPE_N(cost.type))} (tu en as ${s.crystals[cost.type] || 0}) · ${fmt(cost.gold)} ₽`;
     const why = can ? '' : `Atteins d’abord le niveau ${ult ? Math.min(80, A.levelCap(m)) : A.levelCap(m)} (actuellement ${m.lv}).`;
     return modal(`<div class="evp ${ult ? 'evp-' + f.kind : ''}"><h3>${ult ? (f.kind === 'gmax' ? 'Gigamax' : 'Méga-Évolution') : 'Évolution'} · aperçu</h3>
