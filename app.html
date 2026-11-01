@@ -1229,6 +1229,17 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .q-cr.ready { border-color: var(--gold); box-shadow: 0 0 12px rgba(255,201,74,.35); } .q-cr.got { opacity: .6; }
 .ach.done { opacity: .65; }
 .ach-rew .loot span { font-size: 11px; white-space: nowrap; }
+/* Sanctuaire Ultime : deux autels */
+.dg-card.dg-locked { filter: grayscale(.7) brightness(.75); }
+.altars { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.altar { position: relative; display: grid; gap: 6px; justify-items: center; text-align: center; padding: 14px 12px; border-radius: 18px; color: #fff; cursor: pointer; overflow: hidden;
+  border: 2px solid var(--ac); background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--ac) 35%, transparent), #0a0716 70%); box-shadow: 0 0 22px color-mix(in srgb, var(--ac) 35%, transparent); }
+.altar-mega { --ac: #c07bff; } .altar-gmax { --ac: #ff4f6d; }
+.altar-kind { font-size: 10.5px; letter-spacing: 3px; text-transform: uppercase; font-weight: 800; color: var(--ac); }
+.altar > b { font-family: var(--display); font-size: 22px; }
+.altar-boss .spr { width: 120px; height: 120px; filter: drop-shadow(0 0 16px var(--ac)); animation: smBob 2.6s ease-in-out infinite; }
+.altar small { color: #d8d2ee; } .altar-loot { font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.altar-done { font-size: 12px; color: var(--good); } .altar-done.new { color: var(--gold); }
 
 </style>
 <div id="app"></div>
@@ -2829,7 +2840,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     { id: 'stars', cat: 'Campagne', n: 'Étoiles de campagne', icon: 'star', val: () => Object.values(S.campaign).reduce((a, b) => a + b, 0),
       tiers: [[30, T(3, 1)], [60, T(3, 0, 1)], [90, T(5, 1)], [150, T(5, 1, 1)], [210, T(0, 2, 1)], [270, T(0, 2, 1, 1)], [330, T(0, 2, 2)], [360, T(0, 0, 2, 1)]].map(([n, r]) => [n, r, `Cumuler ${n} étoiles`]) },
     ...Object.keys({ bonbons: 1, cristaux: 1, runes: 1, or: 1, ultime: 1 }).map(k => ({ id: 'dg_' + k, cat: 'Donjons', n: () => DUNGEONS[k].n, icon: () => DUNGEONS[k].icon, val: () => S.dungeons[k] || 0,
-      tiers: range(1, 10).map(f => [f, f === 10 ? T(3, 0, 1, 0, 200) : T(2, f % 5 === 0 ? 1 : 0), `Vaincre le sous-niveau ${f}`]) })),
+      tiers: k === 'ultime' ? [[1, T(0, 1, 1, 0, 200), 'Vaincre un autel du Sanctuaire Ultime'], [2, T(0, 1, 1, 0, 300), 'Vaincre l’Autel Méga et l’Autel Gigamax']] : range(1, 10).map(f => [f, f === 10 ? T(3, 0, 1, 0, 200) : T(2, f % 5 === 0 ? 1 : 0), `Vaincre le sous-niveau ${f}`]) })),
     { id: 'arenaWins', cat: 'Arène', n: 'Victoires en arène', icon: 'gold-bottle-cap', val: () => S.arena.wins || 0,
       tiers: [1, 5, 10, 20, 35, 50, 75, 100, 150, 200, 300, 500].map((n, i) => [n, T(n < 50 ? 3 : 5, i % 2 ? 1 : 0, i >= 6 && i % 3 === 0 ? 1 : 0), `Gagner ${n} combat${n > 1 ? 's' : ''} d’arène`]) },
     { id: 'arenaTier', cat: 'Arène', n: 'Rang d’arène', icon: 'gold-bottle-cap', val: () => TIERS.findIndex(t => t[0] === tierOf(Math.max(S.arena.best || 0, S.arena.rating))[0]),
@@ -3138,7 +3149,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     cristaux: { n: 'Temple Élémentaire', d: 'Cristaux d’évolution du type de tes Pokémon. Necrozma corrompu y absorbe la lumière, escorté d’un Évoli gardien.', icon: 'shiny-stone', types: null, base: 8, biome: 'psychic' },
     runes: { n: 'Forge des Runes', d: 'Runes qui augmentent les stats. 4 forges aux ensembles différents (Assaut, Tempête, Bastion, Sang), chacune avec son boss corrompu.', icon: 'hard-stone', types: [9, 10], base: 10, biome: 'volcano' },
     or: { n: 'Mine Dorée', d: 'Des Pokédollars à foison, gardés par Miaouss, Persian et Mordudor… et Mewtwo corrompu.', icon: 'gold-bottle-cap', types: [5, 6], base: 6, biome: 'cave' },
-    ultime: { n: 'Sanctuaire Ultime', d: 'Méga-Cristaux et Particules Dynamax pour les formes ultimes. Zygarde corrompu en est le gardien.', icon: 'mega-bracelet', types: [16, 14, 17], base: 40, biome: 'sky' },
+    ultime: { n: 'Sanctuaire Ultime', d: 'Deux autels gardés par des Légendaires corrompus : l’Autel Méga donne des Méga-Cristaux, l’Autel Gigamax des Particules Dynamax. S’ouvre quand le 10e sous-niveau des 4 autres donjons est vaincu.', d: 'Méga-Cristaux et Particules Dynamax pour les formes ultimes. Zygarde corrompu en est le gardien.', icon: 'mega-bracelet', types: [16, 14, 17], base: 40, biome: 'sky' },
   };
   // Forge des Runes : 4 forges (même progression de sous-niveaux), chacune avec ses ensembles de runes,
   // sa famille de Pokémon, son boss corrompu et son biome. On choisit celle des ensembles dont on a besoin.
@@ -3152,7 +3163,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const forgeOf = b => RUNE_FORGES[b] || RUNE_FORGES.assaut;
   const FLOORS = 10;
   const floorLevel = (k, f) => Math.min(100, DUNGEONS[k].base + f * (k === 'ultime' ? 6 : 8));
-  const floorUnlocked = (k, f) => f === 1 || (S.dungeons[k] || 0) >= f - 1;
+  // Sanctuaire Ultime : 2 autels (Méga, Gigamax), ouverts ensemble quand le 10e sous-niveau des 4 autres donjons est
+  // vaincu ; un cran au-dessus de ces 10e sous-niveaux (ALTAR_K, réglé par simulation).
+  const ULT_NEED = ['bonbons', 'cristaux', 'runes', 'or'];
+  const ultimeOpen = () => ULT_NEED.every(k => (S.dungeons[k] || 0) >= FLOORS);
+  const ALTARS = {
+    1: { key: 'mega', n: 'Autel Méga', boss: 384, bossForm: 'mega:0', bossN: 'Méga-Rayquaza', item: 'megaCrystal', itemN: 'Méga-Cristaux', biome: 'sky' },
+    2: { key: 'gmax', n: 'Autel Gigamax', boss: 888, bossN: 'Zacian', item: 'dynamax', itemN: 'Particules Dynamax', biome: 'storm' },
+  };
+  const ALTAR_K = { 1: +(globalThis.AK1 || 0.82), 2: +(globalThis.AK2 || 0.66) }; // Autel Méga, Autel Gigamax (ennemis très endurants)
+  const dgFloors = k => k === 'ultime' ? 2 : FLOORS;
+  const floorUnlocked = (k, f) => k === 'ultime' ? ultimeOpen() && f >= 1 && f <= 2 : f === 1 || (S.dungeons[k] || 0) >= f - 1;
   // Donjons : 3 vagues, la dernière avec le boss final du sous-niveau. Ton équipe garde ses PV d'une vague à l'autre.
   // Donjons à thème : Mine Dorée (Miaouss, Persian, Mordudor ; boss Gromago au 10e), Forge des Runes (famille
   // Porygon, de plus en plus évoluée avec la profondeur).
@@ -3187,6 +3208,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   };
   // Distribution d'un donjon (pour l'affichage) : boss corrompu et Pokémon qui le gardent.
   function dungeonCast(k, b) {
+    if (k === 'ultime') { const al = ALTARS[b] || ALTARS[1]; return { boss: al.boss, bossN: al.bossN, guards: altarBattle(b === 2 ? 2 : 1).waves[2].slice(1).map(e => e.mon.sid) }; }
     const fg = k === 'runes' ? forgeOf(b) : null;
     return { boss: fg ? fg.boss : CORRUPT[k].sid, bossN: fg ? fg.bossN : CORRUPT[k].n,
       guards: fg ? [...new Set(fg.line)] : k === 'or' ? [52, 53, 999] : k === 'bonbons' ? [143, 446] : k === 'cristaux' ? [133, 134, 135, 136] : [149, 445, 248] };
@@ -3209,7 +3231,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (ultimate && lv >= 80) { const u = A.ultimatesOf(sid); if (u.length) mon.form = u[Math.floor(rng() * u.length)].key; }
     return mon;
   }
+  const altarPool = f => Object.keys(A.family).map(Number).flatMap(r => A.family[r]).filter(id => A.RARITY[id] && A.remaining(id) === 0 && (A.ultimatesOf(id) || []).some(u => u.kind === (f === 1 ? 'mega' : 'gmax'))).sort((a, b) => a - b);
+  function altarBattle(f) {
+    const al = ALTARS[f] || ALTARS[1], lv = 100, rng = seeded(9700 + f);
+    const pool = altarPool(f).filter(id => id !== al.boss);
+    const sh = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const ids = sh(pool); while (ids.length < 15) ids.push(...sh(pool));
+    const top = DG_HARD(FLOORS) * DG_BUMP * (DG_TOP[FLOORS] || 1) * ALTAR_K[f === 2 ? 2 : 1];
+    const mob = (list, l) => list.map(sid => { const mon = themedMon(sid, l, false, rng); const u = A.ultimatesOf(sid).find(x => x.kind === al.key); if (u) mon.form = u.key; return { mon, boss: false, mult: enemyMult(l) * WAVE_MULT * top }; });
+    const bossMon = themedMon(al.boss, lv + 3, false, rng); bossMon.corrupt = true; if (al.bossForm) bossMon.form = al.bossForm;
+    const boss = { mon: bossMon, boss: true, mult: enemyMult(lv + 3) * 0.8 * top, hpMult: 2.1, fx: CORRUPT_FX };
+    const waves = [mob(ids.slice(0, 5), lv), mob(ids.slice(5, 11), lv), [boss, ...mob(ids.slice(11, 15), lv)]];
+    return { kind: 'dungeon', k: 'ultime', f, lv, enemies: waves[0], waves, types: A.sp(al.boss).t, boss: true, biome: al.biome, altar: al.key };
+  }
   function dungeonBattle(k, f, b) {
+    if (k === 'ultime') return altarBattle(f);
     const dg = DUNGEONS[k], lv = floorLevel(k, f);
     if (k === 'runes') b = RUNE_FORGES[b] ? b : 'assaut'; else b = undefined;
     const rng = seeded(9000 + Object.keys(DUNGEONS).indexOf(k) * 100 + f + (b ? RUNE_FORGE_ORDER.indexOf(b) * 1000 : 0));
@@ -3269,8 +3305,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       }
     }
     if (k === 'or') loot.gold *= 6;
-    if (k === 'ultime') { loot.items = {}; if (Math.random() < 0.35 + f * 0.04) loot.items[Math.random() < 0.5 ? 'megaCrystal' : 'dynamax'] = 1; if (f === FLOORS) loot.items.megaCrystal = (loot.items.megaCrystal || 0) + 1; }
-    if (f === FLOORS && !(S.dungeonsBoss || {})[k]) loot.gems = 200;
+    if (k === 'ultime') { const al = ALTARS[f]; loot.gold = 6200; loot.items = { [al.item]: 1 + (Math.random() < 0.3 ? 1 : 0) }; if (!(S.altars || {})[f]) loot.gems = 250; } // 1 ou 2 objets ultimes par victoire
+    else if (f === FLOORS && !(S.dungeonsBoss || {})[k]) loot.gems = 200;
     // 3 vagues : butin augmenté de 50 % (et une rune de plus dès le 5e sous-niveau de la Forge).
     loot.gold = Math.round(loot.gold * 1.5);
     for (const g of ['candies', 'crystals']) for (const key in loot[g] || {}) loot[g][key] = Math.round(loot[g][key] * 1.5);
@@ -3390,7 +3426,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         if (spec.n === S.tower.best + 1) S.tower.best = spec.n;
       }
     } else if (spec.kind === 'dungeon') {
-      if (win) { res.loot = dungeonLoot(spec.k, spec.f, spec.types, spec.b); S.dungeons[spec.k] = Math.max(S.dungeons[spec.k] || 0, spec.f); if (spec.f === FLOORS) { S.dungeonsBoss = S.dungeonsBoss || {}; S.dungeonsBoss[spec.k] = true; } }
+      if (win && spec.k === 'ultime') { res.loot = dungeonLoot(spec.k, spec.f, spec.types, spec.b); S.altars = S.altars || {}; S.altars[spec.f] = true; S.dungeons.ultime = Object.keys(S.altars).length; }
+      else if (win) { res.loot = dungeonLoot(spec.k, spec.f, spec.types, spec.b); S.dungeons[spec.k] = Math.max(S.dungeons[spec.k] || 0, spec.f); if (spec.f === FLOORS) { S.dungeonsBoss = S.dungeonsBoss || {}; S.dungeonsBoss[spec.k] = true; } }
     }
     applyLoot(res.loot);
     for (const u of allies) { const m = S.mons.find(x => x.uid === u.mon.uid); if (!m) continue; const before = m.lv; gainExp(m, exp); if (m.lv > before) res.ups.push({ name: A.sp(m.sid).n, from: before, to: m.lv }); }
@@ -3406,6 +3443,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const SECRET_CHOICES = [4, 25];
   // Première version : un toucher de trop pouvait choisir le Pokémon sans le vouloir. La récompense cachée déjà prise
   // avec cette version redevient disponible une fois (le Pokémon reçu reste acquis, le succès ne se recompte pas).
+  // Ancien Sanctuaire Ultime à 10 sous-niveaux : progression et succès remis à zéro pour les 2 nouveaux autels.
+  function migrateAltars() { if (S.dgV === 2) return; S.dungeons.ultime = 0; S.altars = {}; if (S.ach) S.ach.dg_ultime = 0; if (S.achSeen) delete S.achSeen.dg_ultime; if (S.dungeonsBoss) delete S.dungeonsBoss.ultime; S.dgV = 2; }
   function migrateSecret() { if (S.secret && S.secretV !== 2) { S.secretPrev = S.secret; delete S.secret; } S.secretV = 2; }
   function claimSecret(sid) {
     if (S.secret || !SECRET_CHOICES.includes(sid)) return null;
@@ -3419,18 +3458,18 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const KEY = 'psa_save_v1', SAVED_AT = 'psa_saved_at';
   function fresh() {
     return { v: 1, started: false, gems: 500, gold: 20000, candies: { S: 15, M: 3, L: 0 }, crystals: {}, items: { megaCrystal: 0, dynamax: 0 },
-      mons: [], runes: [], team: [], dex: [], campaign: {}, dungeons: {}, dungeonsBoss: {}, pity: { first: 0, firstDone: false, c: {} },
+      mons: [], runes: [], team: [], dex: [], campaign: {}, dungeons: {}, dungeonsBoss: {}, altars: {}, pity: { first: 0, firstDone: false, c: {} },
       arena: { rating: 1000, tickets: ARENA_TICKETS, day: today(), wins: 0, opps: null }, stats: { pulls: 0, battles: 0, wins: 0, evos: 0, ults: 0 }, ach: {}, achSeen: {},
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
     if (!snap || !snap.state) return false;
     try { S = Object.assign(fresh(), JSON.parse(snap.state)); localStorage.setItem(KEY, snap.state); localStorage.setItem(SAVED_AT, String(snap.at || Date.now())); } catch (e) { return false; }
-    migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); return true;
+    migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); arenaRefresh(); return true;
   }
   const exportCode = () => 'PSA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(snapshot()))));
   function importCode(code) {
@@ -3456,7 +3495,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
     QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
-    RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle,
+    RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -5833,7 +5872,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   // Butin de chaque donjon (affichage).
   const DG_LOOT = { bonbons: ['rare-candy', 'Bonbons d’expérience'], cristaux: ['shiny-stone', 'Cristaux d’évolution'], runes: ['hard-stone', 'Runes (4 forges)'], or: ['gold-bottle-cap', 'Pokédollars ×6'], ultime: ['mega-bracelet', 'Méga-Cristaux · Particules Dynamax'] };
-  const depthBar = n => `<div class="dg-depth">${Array.from({ length: G.FLOORS }, (_, i) => `<i class="${i < n ? 'on' : ''} ${i === G.FLOORS - 1 ? 'b' : ''}"></i>`).join('')}</div>`;
+  const depthBar = (n, len) => { len = len || G.FLOORS; return `<div class="dg-depth">${Array.from({ length: len }, (_, i) => `<i class="${i < n ? 'on' : ''} ${i === len - 1 ? 'b' : ''}"></i>`).join('')}</div>`; };
   function bioThumbs() { if (!window.ArenaBiomes) return; const cards = [...app.querySelectorAll('[data-bio]')]; const next = () => { const b = cards.shift(); if (!b || !b.isConnected) return; const u = ArenaBiomes.thumb(b.dataset.bio, 360, 150); if (u) b.style.setProperty('--thumb', `url(${u})`); b.classList.add('has-thumb'); requestAnimationFrame(next); }; requestAnimationFrame(next); }
   function dungeonsScreen() {
     const s = S();
@@ -5841,13 +5880,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <div class="dg-hero"><i class="dg-torch l"></i><i class="dg-torch r"></i><div class="dg-gate"></div>
         <h2>Les Profondeurs</h2><p>3 vagues par sous-niveau. Au fond de chaque donjon, un <b>Légendaire corrompu</b> t’attend avec sa garde.</p></div>
       <div class="dg-list">${Object.entries(G.DUNGEONS).map(([k, d]) => { const cast = G.dungeonCast(k, k === 'runes' ? forgeSel : undefined), p = s.dungeons[k] || 0, done = (s.dungeonsBoss || {})[k];
-        return `<button class="dg-card dg-${k}" data-k="${k}" data-bio="${k === 'runes' ? G.RUNE_FORGES[forgeSel].biome : d.biome}">
+        const ult = k === 'ultime', lock = ult && !G.ultimeOpen(), need = G.ULT_NEED.filter(x => (s.dungeons[x] || 0) >= G.FLOORS).length;
+        return `<button class="dg-card dg-${k} ${lock ? 'dg-locked' : ''}" data-k="${k}" data-bio="${k === 'runes' ? G.RUNE_FORGES[forgeSel].biome : d.biome}">
           <div class="dg-art">${k === 'runes' ? `<span class="dg-quad">${G.RUNE_FORGE_ORDER.map(f => `<span class="dg-qb forge-${f}">${speciesImg(G.RUNE_FORGES[f].boss, 'corrupt')}</span>`).join('')}</span>` : `<span class="dg-guards">${cast.guards.slice(0, 3).map(id => speciesImg(id, 'mini')).join('')}</span><span class="dg-boss">${speciesImg(cast.boss, 'corrupt')}</span>`}${done ? '<i class="dg-clear">✓ Boss vaincu</i>' : ''}</div>
           <div class="dg-info"><div class="dg-name">${itemIcon(d.icon)}<b>${esc(d.n)}</b></div>
             <span class="dg-loot">${itemIcon(DG_LOOT[k][0])} ${DG_LOOT[k][1]}</span>
-            ${depthBar(p)}<small>Profondeur ${p} / ${G.FLOORS} · N.${G.floorLevel(k, 1)}–${G.floorLevel(k, G.FLOORS)} · Boss : <em>${k === 'runes' ? G.RUNE_FORGE_ORDER.map(f => esc(G.RUNE_FORGES[f].bossN)).join(', ') + ' corrompus' : esc(cast.bossN) + ' corrompu'}</em></small></div></button>`; }).join('')}</div></div>`;
+            ${ult ? `${depthBar(p, 2)}<small>${lock ? `🔒 Vaincs le 10e sous-niveau des 4 autres donjons (${need} / 4)` : `Autels ${p} / 2 · N.100 · Boss : <em>Méga-Rayquaza et Zacian corrompus</em>`}</small>` : `${depthBar(p)}<small>Profondeur ${p} / ${G.FLOORS} · N.${G.floorLevel(k, 1)}–${G.floorLevel(k, G.FLOORS)} · Boss : <em>${k === 'runes' ? G.RUNE_FORGE_ORDER.map(f => esc(G.RUNE_FORGES[f].bossN)).join(', ') + ' corrompus' : esc(cast.bossN) + ' corrompu'}</em></small>`}</div></button>`; }).join('')}</div></div>`;
     bindBack();
-    app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => floorsScreen(b.dataset.k));
+    app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => b.dataset.k !== 'ultime' ? floorsScreen(b.dataset.k) : G.ultimeOpen() ? altarScreen() : toast(`🔒 Sanctuaire Ultime : vaincs d’abord le 10e sous-niveau de ${G.ULT_NEED.filter(x => (S().dungeons[x] || 0) < G.FLOORS).map(x => G.DUNGEONS[x].n).join(', ')}.`));
     bioThumbs();
   }
   // Forge des Runes : choix de la forge (ensembles de runes, boss corrompu) au-dessus des sous-niveaux.
@@ -5857,6 +5897,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return `<div class="forges">${G.RUNE_FORGE_ORDER.map(b => { const fg = G.RUNE_FORGES[b]; return `<button class="forge forge-${b} ${b === forgeSel ? 'on' : ''}" data-forge="${b}">
       <span class="forge-boss">${speciesImg(fg.boss, 'mini corrupt')}</span><b>${esc(fg.n)}</b><span class="forge-sets">${fg.sets.map(k => `<i>${esc(G.RUNE_SETS[k].n)}</i>`).join('')}</span></button>`; }).join('')}</div>
       <p class="muted small forge-d">${esc(G.RUNE_FORGES[forgeSel].d)} Ensembles obtenus : ${G.RUNE_FORGES[forgeSel].sets.map(k => `<b>${esc(G.RUNE_SETS[k].n)}</b> (${esc(G.RUNE_SETS[k].d)})`).join(' · ')}.</p>`;
+  }
+  // Sanctuaire Ultime : deux autels, un pour les Méga-Évolutions, un pour les Gigamax.
+  function altarScreen() {
+    const s = S(), d = G.DUNGEONS.ultime;
+    app.innerHTML = topbar(d.n) + `<div class="page dg-page">
+      <div class="dg-fhero" data-bio="sky"><div class="dg-fhero-t"><span>Sanctuaire Ultime</span><b>Les deux autels</b><div class="dg-loot">${itemIcon('mega-bracelet')} Méga-Cristaux · Particules Dynamax</div>${depthBar(s.dungeons.ultime || 0, 2)}</div>
+        <div class="dg-fboss">${speciesImg(384, 'corrupt')}<small>Gardiens corrompus</small></div></div>
+      <p class="muted small">Un cran au-dessus du 10e sous-niveau des autres donjons : 3 vagues de Pokémon tous en forme ultime, niveau 100, puis leur gardien. Chaque victoire rapporte 1 ou 2 objets ultimes (3 suffisent pour éveiller une forme).</p>
+      <div class="altars">${[1, 2].map(f => { const al = G.ALTARS[f], cast = G.dungeonCast('ultime', f), done = (s.altars || {})[f];
+        return `<button class="altar altar-${al.key} ${done ? 'done' : ''}" data-f="${f}"><span class="altar-kind">${al.key === 'mega' ? 'Méga-Évolution' : 'Gigamax'}</span><b>${esc(al.n)}</b>
+          <span class="altar-boss">${monImg({ sid: al.boss, form: al.bossForm, shiny: false }, 'corrupt')}</span><small>${esc(al.bossN)} corrompu et sa garde : ${cast.guards.slice(0, 3).map(id => esc(sp(id).n)).join(', ')}…</small>
+          <span class="altar-loot">${itemIcon(al.key === 'mega' ? 'mega-bracelet' : 'dynamax-band')} ${esc(al.itemN)} ×1–2 · tu en as ${s.items[al.item] || 0}</span>${done ? '<span class="altar-done">✓ déjà vaincu</span>' : '<span class="altar-done new">Première victoire : 250 gemmes</span>'}</button>`; }).join('')}</div></div>`;
+    bindBack(dungeonsScreen);
+    if (window.ArenaBiomes) ArenaBiomes.attach(app.querySelector('.dg-fhero'), 'sky');
+    app.querySelectorAll('[data-f]').forEach(x => x.onclick = () => { const spec = G.dungeonBattle('ultime', +x.dataset.f); prepScreen(spec, G.ALTARS[+x.dataset.f].n, () => altarScreen(), () => altarScreen()); });
   }
   function floorsScreen(k) {
     const s = S(), d = G.DUNGEONS[k];
@@ -6194,7 +6249,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
       ${sec('Expérience', '<p>Les combats donnent de l’expérience à l’équipe. Les bonbons S, M, L (Grotte Gourmande) en donnent beaucoup, contre quelques Pokédollars.</p>')}
       ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Amélioration de +0 à +${G.RUNE_MAX}, de plus en plus chère, avec un risque d’échec à partir de +7 (les Pokédollars sont perdus en cas d’échec). Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
-      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : la suite de la campagne dans les mêmes chapitres, sans retour en arrière de difficulté. Le Difficile (niveaux 76 à 100) commence un cran au-dessus de la fin de la Normale, l’Enfer (niveau 100, formes ultimes) au-dessus de la fin du Difficile ; il se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15. Récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Chaque mode s’ouvre quand le précédent est terminé.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
+      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : la suite de la campagne dans les mêmes chapitres, sans retour en arrière de difficulté. Le Difficile (niveaux 76 à 100) commence un cran au-dessus de la fin de la Normale, l’Enfer (niveau 100, formes ultimes) au-dessus de la fin du Difficile ; il se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15. Récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Chaque mode s’ouvre quand le précédent est terminé.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (ouvert quand le 10e sous-niveau des 4 autres donjons est vaincu : Autel Méga, Méga-Cristaux, gardé par Méga-Rayquaza corrompu ; Autel Gigamax, Particules Dynamax, gardé par Zacian corrompu ; un cran au-dessus des 10e sous-niveaux). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
       ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b> (25 Pokémon du jour, dont 1 Légendaire, liste renouvelée à minuit), le Légendaire du jour au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au 6e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
     </div>`;
     bindBack(settingsScreen);
