@@ -1422,7 +1422,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const PASSIVE_TABLE = {
     // Starters
     3: ['Floraison millénaire', [F('regen', 3), F('hp', 10)]], 6: ['Brasier', [F('dmgUp', 10), F('statusAura', 15, { ail: 4 })]],
-    9: ['Carapace-Canon', [F('bulwark', 8), F('thorns', 15)]], 154: ['Arôme apaisant', [F('regen', 4), F('cleanseTurn', 1)]],
+    9: ['Carapace-Canon', [F('bulwark', 10), F('aoeUp', 15), F('shieldStart', 8)]], 154: ['Arôme apaisant', [F('regen', 4), F('cleanseTurn', 1)]],
     157: ['Éruption', [F('aoeUp', 20), F('firstStrike', 25)]], 160: ['Mâchoire d’acier', [F('moxie', 10), F('lifelink', 10)]],
     254: ['Délestage', [F('speed', 20), F('doubleTurn', 15)]], 257: ['Turbo', [F('speed', 10), F('moxie', 12)]],
     260: ['Moiteur', [F('hp', 15), F('intimidate', 1, { stat: 'spe' })]], 389: ['Écosystème', [F('shieldStart', 10), F('regen', 2)]],
@@ -1497,6 +1497,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     1016: ['Chaîne Toxique', [F('statusAura', 30, { ail: 5 }), F('speed', 10)]], 1017: ['Masque Embrasé', [F('crit', 20), F('firstStrike', 25)]],
     1024: ['Téra-Morphose', [F('teamDr', 15), F('aura', 12), F('shieldStart', 15)]],
   };
+  // Chaque Légendaire, Fabuleux et Mythique a une combinaison d'effets qui lui est propre : un effet distinctif
+  // (inspiré de son histoire) s'ajoute à ceux qui partageaient la même combinaison qu'un autre.
+  const UNIQUE_FX = {
+    146: F('rebirth', 30), 377: F('shieldStart', 10), 652: F('teamDr', 8), 1020: F('statusAura', 15, { ail: 4 }), 378: F('timeLock', 80),
+    243: F('firstStrike', 20), 807: F('crit', 10), 251: F('rebirth', 25), 488: F('teamDr', 8), 490: F('copy', 8), 649: F('infiltrate', 15),
+    658: F('crit', 10), 795: F('doubleTurn', 8), 897: F('infiltrate', 15), 1005: F('lifelink', 10), 706: F('regen', 2), 645: F('aoeUp', 15),
+    905: F('timeLock', 60), 379: F('thorns', 10), 481: F('aura', 8), 386: F('doubleTurn', 12), 637: F('statusAura', 20, { ail: 4 }), 987: F('aoeUp', 15),
+    389: F('hp', 10), 482: F('speed', 10), 1017: F('execute', 20), 638: F('teamDr', 8), 784: F('thorns', 10), 648: F('statusAura', 15, { ail: 2 }),
+    911: F('statusAura', 15, { ail: 4 }), 992: F('endure', 1), 1006: F('execute', 15), 1021: F('aoeUp', 15), 798: F('execute', 20), 892: F('firstStrike', 20),
+    908: F('speed', 10), 894: F('doubleTurn', 12), 984: F('aoeUp', 15), 991: F('lifelink', 10),
+  };
+  PASSIVE_TABLE[647] = ['Résolution', [F('dmgUp', 15), F('execute', 20)]]; // Keldeo
+  PASSIVE_TABLE[489] = ['Hydratation', [F('regen', 3), F('pure', 1)]]; // Phione
+  for (const [id, e] of Object.entries(UNIQUE_FX)) if (PASSIVE_TABLE[id]) PASSIVE_TABLE[id][1].push(e);
   const STAT_FR2 = { atk: 'Attaque', def: 'Défense', spa: 'Atq. Spé', spd: 'Déf. Spé', spe: 'Vitesse' };
   const AIL_VERB = { 1: 'paralyser', 2: 'endormir', 3: 'geler', 4: 'brûler', 5: 'empoisonner' };
   const typeN = t => (D.types.find(x => x.id === t) || {}).n || '';
