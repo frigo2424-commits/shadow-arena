@@ -4308,8 +4308,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   let installEvt = null;
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+  // Chaque nouvel écran s'ouvre en haut de page (un simple rafraîchissement du même écran garde la position).
+  let lastTitle = null;
   function topbar(title, back) {
     const s = S(); Music.play('menu');
+    if (title !== lastTitle) { lastTitle = title; window.scrollTo(0, 0); }
     return `<header class="topbar">${back !== false ? `<button class="btn icon-btn" data-back aria-label="Retour">‹</button>` : `<button class="btn icon-btn gear-btn" data-settings aria-label="Paramètres" title="Paramètres">⚙</button>`}<h1>${esc(title)}</h1>${back === false && !isStandalone() && canFull() ? '<button class="btn icon-btn fs-btn" data-fs aria-label="Plein écran" title="Plein écran">⛶</button>' : ''}
       <div class="res"><span title="Gemmes">✦ ${fmt(s.gems)}</span><span title="Pokédollars">₽ ${fmt(s.gold)}</span></div></header>${back !== false ? subHero(title) : ''}`;
   }
@@ -4982,6 +4985,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   function battleScreen(spec, onEnd) {
+    lastTitle = null;
     if (spec.kind === 'campaign' && G.teamRule(spec.d)) { autoCamp = false; toast(G.teamRule(spec.d)); return prepScreen(spec, `${spec.c + 1}-${spec.i + 1} · ${G.DIFFS[spec.d].n}`, () => chapterScreen(spec.c, spec.d), () => chapterScreen(spec.c, spec.d)); }
     const b = G.buildBattle(spec);
     const byUid = Object.fromEntries(b.units.map(u => [u.uid, u]));
