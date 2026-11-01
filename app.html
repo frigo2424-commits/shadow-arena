@@ -1191,6 +1191,17 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
   .reveal-grid .rv { padding: 6px 4px; gap: 2px; }
   .reveal-grid .rv .spr, .reveal-grid .rv img { width: 56px !important; height: 56px !important; }
 }
+/* Récompense cachée de l'Aventure */
+.pano-in .egg { position: absolute; z-index: 2; background: none; border: 0; padding: 0; margin: 0; cursor: default; -webkit-tap-highlight-color: transparent; }
+.pano-in .egg.hop::after { content: ''; position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; border: 2px solid rgba(255,255,255,.75); animation: eggRip .45s ease-out forwards; pointer-events: none; }
+@keyframes eggRip { to { transform: scale(2.2); opacity: 0; } }
+.secret { text-align: center; display: grid; gap: 8px; }
+.secret h3 { margin: 0; font-family: var(--display); color: var(--gold); text-shadow: 0 0 14px rgba(255,201,74,.5); }
+.secret-burst { font-size: 46px; animation: smBob 1.6s ease-in-out infinite; }
+.secret-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.secret-mon { display: grid; justify-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: #fff; cursor: pointer; transition: transform .15s, border-color .15s; }
+.secret-mon:hover, .secret-mon:focus-visible { transform: translateY(-3px); border-color: var(--gold); }
+.secret-mon .spr { width: 96px; height: 96px; }
 
 </style>
 <div id="app"></div>
@@ -2766,6 +2777,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tiers: Object.entries(ARENA_TIER_REWARDS).map(([t, r]) => [TIER_NAMES.indexOf(t), { tickets: r, gems: 0 }, `Atteindre le rang ${t}`]) },
     { id: 'dex', cat: 'Collection', n: 'Pokédex', icon: 'poke-radar', val: () => S.dex.length, tiers: DEX_STEPS.map(([n, t]) => [n, { tickets: t, gems: 0 }, `Enregistrer ${n} Pokémon`]) },
     { id: 'pulls', cat: 'Collection', n: 'Invocations', icon: 'master-ball', val: () => S.stats.pulls || 0, tiers: [[10, T(3)], [30, T(0, 1)], [60, T(5)], [100, T(0, 1, 1)], [200, T(5, 1)], [400, T(0, 2, 1)], [700, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Invoquer ${n} fois`]) },
+    // Succès caché : taper 10 fois de suite sur Pikachu ou Salamèche, face à face sur la route de l'écran Aventure.
+    { id: 'secret', cat: 'Collection', n: 'Récompense cachée', icon: 'poke-radar', hidden: true, val: () => S.secret ? 1 : 0, tiers: [[1, Object.assign(T(0, 0, 1), { exact: true }), 'Trouver la récompense cachée de l’Aventure']] },
     { id: 'level', cat: 'Entraînement', n: 'Meilleur niveau', icon: 'rare-candy', val: () => Math.max(0, ...S.mons.map(m => m.lv)), tiers: [[10, T(2)], [20, T(3)], [30, T(3, 1)], [40, T(3, 0, 1)], [50, T(5, 1)], [60, T(5, 0, 1)], [70, T(0, 2, 1)], [80, T(0, 2, 1, 1)], [90, T(0, 0, 2)], [100, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Monter un Pokémon au niveau ${n}`]) },
     { id: 'team80', cat: 'Entraînement', n: 'Équipe aguerrie', icon: 'exp-share', val: () => S.mons.filter(m => m.lv >= 50).length, tiers: [[2, T(3)], [4, T(0, 1, 1)], [8, T(5, 1)], [12, T(0, 2, 1)]].map(([n, r]) => [n, r, `Avoir ${n} Pokémon niveau 50 ou plus`]) },
     { id: 'evos', cat: 'Entraînement', n: 'Évolutions', icon: 'shiny-stone', val: () => S.stats.evos || 0, tiers: [[1, T(3)], [3, T(0, 1)], [6, T(3, 0, 1)], [10, T(5, 1)], [20, T(0, 2, 1)], [35, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Faire évoluer ${n} fois`]) },
@@ -2878,7 +2891,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     normal: { n: 'Normale', lv: 0, mult: 0.82, rew: 1, color: '#35e0ff' },
     hard: { n: 'Difficile', lv: 5, mult: 0.92, rew: 2.5, color: '#ff9b3d', prev: 'normal' },
     hell: { n: 'Enfer', lv: 12, mult: 1, rew: 5, color: '#ff3d5a', prev: 'hard' },
-    // Défi : ouvert quand la campagne Enfer est terminée ; adversaires niveau 85 à 92 (CURVE), équipe limitée
+    // Défi : ouvert quand la campagne Enfer est terminée ; adversaires niveau 72 à 82 (CURVE), équipe limitée
     // à des Pokémon Normaux, Rares et au plus 3 Épiques. Chaque chapitre terminé : 1 Master Ball et 2 Hyper Balls.
     defi: { n: 'Challenge Pokémaniac', short: 'Pokémaniac', lv: 5, mult: 1.2, rew: 2.5, color: '#ff4a5a', prev: 'hell', rule: true },
   };
@@ -2908,11 +2921,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Difficile et Enfer prolongent le Normal au lieu de repartir de zéro : le Difficile commence juste au-dessus de la
   // fin du Normal (niveaux 76 → 100), l'Enfer au-dessus de la fin du Difficile (niveau 100, formes ultimes).
   // La force adverse suit une menace cible (stats effectives, voir threat) qui monte d'étape en étape.
-  const CURVE = Object.assign({ hard: [12, 16.5], hell: [17, 20.5], defi: [10.3, 13] }, globalThis.CURVE || {}); // menace moyenne (milliers) : chapitre 1 → 12
+  const CURVE = Object.assign({ hard: [12, 16.5], hell: [17, 20.5], defi: [7, 8.8] }, globalThis.CURVE || {}); // menace moyenne (milliers) : chapitre 1 → 12
   const CHAIN = d => d === 'hard' || d === 'hell' || d === 'defi';
-  // Challenge : équipe plafonnée au niveau 80, adversaires de 85 à 92 (un écart de niveau trop grand écrase tout) ;
-  // menace de 10,3k à 13k : début aussi coriace que la fin de l'Enfer pour une équipe sans Légendaires, fin avec les âmes.
-  const CHAIN_LV = Object.assign({ hard: [76, 100], defi: [85, 92] }, globalThis.CHAIN_LV || {});
+  // Challenge : pas un mode extrême, une façon de jouer avec des Pokémon moins rares pour gagner des Balls ;
+  // adversaires niveau 72 à 82, menace de 7k à 8,8k : une équipe Normaux/Rares/Épiques niveau 80 aux runes
+  // Légendaires +9 passe tout, avec des runes Épiques +6 la fin demande de s'améliorer un peu.
+  const CHAIN_LV = Object.assign({ hard: [76, 100], defi: [72, 82] }, globalThis.CHAIN_LV || {});
   const chainLevel = (c, i, d) => { if (d === 'hell') return 100; const [a, b] = CHAIN_LV[d]; return Math.round(a + (c * CHAPTER_STAGES + i) * (b - a) / (CHAPTERS.length * CHAPTER_STAGES - 1)); };
   const chainThreat = (c, i, d) => { const [a, b] = CURVE[d], t = (c * CHAPTER_STAGES + i) / (CHAPTERS.length * CHAPTER_STAGES - 1);
     return 1000 * a * Math.pow(b / a, t) * CHAIN_K[i] * (1 + 0.012 * (i - 4)); };
@@ -3257,6 +3271,16 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // ---------- Pokédex et état ----------
+  // Récompense cachée de l'écran Aventure : Salamèche ou Pikachu au choix, une seule fois (une Âme si la lignée est déjà là).
+  const SECRET_CHOICES = [4, 25];
+  function claimSecret(sid) {
+    if (S.secret || !SECRET_CHOICES.includes(sid)) return null;
+    S.secret = sid;
+    let res;
+    if (S.mons.some(m => A.rootOf(m.sid) === sid)) { S.souls = S.souls || {}; S.souls[sid] = (S.souls[sid] || 0) + 1; res = { soul: true }; }
+    else { const mon = newMon(sid, 5); S.mons.push(mon); markDex(sid); if (S.team.length < TEAM_SIZE) S.team.push(mon.uid); res = { mon }; }
+    save(); return res;
+  }
   function markDex(sid) { if (!S.dex.includes(sid)) S.dex.push(sid); }
   const KEY = 'psa_save_v1', SAVED_AT = 'psa_saved_at';
   function fresh() {
@@ -3296,7 +3320,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
-    CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
+    SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
@@ -4695,6 +4719,27 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     <rect x="274" y="168" width="60" height="44" rx="4" fill="#0c3550" stroke="#35e0ff"/><circle cx="276" cy="156" r="6" fill="#35e0ff"/><circle cx="292" cy="154" r="3" fill="#ff6a6a"/><circle cx="302" cy="154" r="3" fill="#ffd23a"/>
     <path d="M282 196 q8 -16 16 0 t16 0" stroke="#35e0ff" fill="none" stroke-width="2"/><rect x="276" y="222" width="24" height="18" rx="3" fill="#7a0f22"/><circle cx="322" cy="231" r="8" fill="#7a0f22"/>
   </svg>`;
+  // Récompense cachée : Pikachu et Salamèche face à face sur la route (zones invisibles posées sur l'illustration).
+  const eggs = () => `<button class="egg" data-egg="25" aria-hidden="true" tabindex="-1" style="left:54.5%;top:77.5%;width:9%;height:13%"></button><button class="egg" data-egg="4" aria-hidden="true" tabindex="-1" style="left:64.4%;top:79.5%;width:7%;height:12%"></button>`;
+  let eggN = 0, eggT = 0;
+  function bindEggs() {
+    app.querySelectorAll('[data-egg]').forEach(b => b.onclick = e => {
+      e.stopPropagation(); const now = Date.now();
+      eggN = now - eggT < 1500 ? eggN + 1 : 1; eggT = now; // 10 touchers de suite, sans trop de pause
+      b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop');
+      if (eggN >= 10) { eggN = 0; secretReward(); }
+    });
+    if (!app.dataset.eggReset) { app.dataset.eggReset = '1'; app.addEventListener('click', e => { if (!e.target.closest('[data-egg]')) eggN = 0; }, true); }
+  }
+  function secretReward() {
+    if (S().secret) return toast('✨ Tu as déjà trouvé la récompense cachée !');
+    Music.fanfare();
+    modal(`<div class="secret"><div class="secret-burst">🎉</div><h3>Bravo, tu as débloqué la récompense cachée !</h3><p class="muted small">Choisis ton compagnon :</p>
+      <div class="secret-pick">${G.SECRET_CHOICES.map(id => `<button class="secret-mon" data-sid="${id}">${speciesImg(id)}<b>${esc(sp(id).n)}</b><span class="rar-tag" style="--rc:${rar(A.RARITY[id]).color}">${rar(A.RARITY[id]).n}</span></button>`).join('')}</div></div>`,
+      (bg, close) => bg.querySelectorAll('[data-sid]').forEach(x => x.onclick = () => close(+x.dataset.sid)))
+      .then(sid => { if (!sid) return; const r = G.claimSecret(sid); if (!r) return;
+        toast(r.soul ? `+1 Âme de ${sp(sid).n} (tu l’avais déjà) !` : `${sp(sid).n} rejoint ton équipe !`); showNotices(); hub(); });
+  }
   let hubPage = 0;
   function hub() {
     if (!S().started) return intro();
@@ -4713,11 +4758,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
           spot('bag', 'Inventaire', `Sac · ${s.runes.length} runes`, itemIcon('rare-candy'), 4, 70) +
           spot('crucible', 'Creuset runique', `${fmt(s.shards || 0)} éclats`, itemIcon('crucible'), 75, 46, 0, 'c-violet') +
           spot('shop', 'Boutique', 'Offres en ₽ · 4 / jour', itemIcon('shop'), 58, 33, 0, 'c-gold')}</div></div>`, '')}
-        ${page(1, 'Aventure', `<div class="pano" style="--pbg:url(sprites/aventure.webp)" data-start=".42"><div class="pano-in"><img src="sprites/aventure.webp" alt="" draggable="false">${spot('campaign', 'Campagne', `${done} / ${G.CHAPTERS.length * G.CHAPTER_STAGES} étapes`, itemIcon('poke-ball'), 44, 80, 0, 'c-violet') +
+        ${page(1, 'Aventure', `<div class="pano" style="--pbg:url(sprites/aventure.webp)" data-start=".42"><div class="pano-in"><img src="sprites/aventure.webp" alt="" draggable="false">${spot('campaign', 'Campagne', `${done} / ${G.CHAPTERS.length * G.CHAPTER_STAGES} étapes`, itemIcon('poke-ball'), 37, 82, 0, 'c-violet') +
           spot('arena', 'Arène', `${tier[0]} · ${s.arena.tickets} combats`, itemIcon('gold-bottle-cap'), 80, 46, 0, 'c-magenta') +
           spot('dungeons', 'Donjons', 'Grotte · 5 donjons', itemIcon('hard-stone'), 33, 50, 0, 'c-cyan') +
           spot('maniac', 'Pokémaniac', G.diffOpen('defi') ? `Challenge · ${G.CHAPTERS.filter((_, c) => G.prog('defi')[c + '-' + (G.CHAPTER_STAGES - 1)]).length} / ${G.CHAPTERS.length}` : '🔒 Après l’Enfer', itemIcon('maniac'), 57, 58, 0, 'c-maniac' + (G.diffOpen('defi') ? '' : ' locked')) +
-          spot('tower', 'Tour Infinie', G.towerOpen() ? `Étage ${((s.tower || {}).best || 0) + 1} / ${G.TOWER_FLOORS}` : '🔒 Après le Difficile', itemIcon('trophy'), 8, 44, 0, 'c-gold' + (G.towerOpen() ? '' : ' locked'))}</div><div class="pano-hint">⟷ Glisse pour explorer la route</div></div>`, '')}
+          eggs() + spot('tower', 'Tour Infinie', G.towerOpen() ? `Étage ${((s.tower || {}).best || 0) + 1} / ${G.TOWER_FLOORS}` : '🔒 Après le Difficile', itemIcon('trophy'), 8, 44, 0, 'c-gold' + (G.towerOpen() ? '' : ' locked'))}</div><div class="pano-hint">⟷ Glisse pour explorer la route</div></div>`, '')}
         ${page(2, 'Collection', `<div class="pano" style="--pbg:url(sprites/collection.webp)" data-start=".45"><div class="pano-in"><img src="sprites/collection.webp" alt="" draggable="false">${
           spot('achievements', 'Succès', ach ? `${ach} à récupérer` : 'Trophées', itemIcon('trophy'), 10, 47, ach, ach ? 'c-gold glow' : 'c-gold') +
           spot('pokedex', 'Pokédex', `${s.dex.length} / ${total}`, itemIcon('poke-radar'), 46, 47, 0, 'c-cyan') +
@@ -4726,6 +4771,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <nav class="hub-tabs">${['🏥 Centre', '🗺️ Aventure', '🏆 Collection'].map((t, i) => `<button data-tab="${i}" class="${i === hubPage ? 'on' : ''}">${t}${i === 2 && ach ? `<i class="dot"></i>` : ''}</button>`).join('')}</nav></div>`;
     const go = { tower: () => G.towerOpen() ? towerScreen() : toast('🔒 Tour Infinie : termine d’abord toute la campagne en Difficile.'), achievements: achievementsScreen, campaign: () => campaignScreen(campDiff === 'defi' ? 'normal' : campDiff), maniac: () => G.diffOpen('defi') ? campaignScreen('defi') : toast('🔒 Challenge Pokémaniac : termine d’abord toute la campagne en Enfer.'), crucible: () => crucibleScreen(), shop: () => shopScreen(), arena: arenaScreen, dungeons: dungeonsScreen, summon: summonScreen, mons: () => monsScreen(), team: teamScreen, bag: bagScreen, save: saveScreen, rules: rulesScreen, pokedex: () => pokedexScreen() };
     app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go[b.dataset.go]());
+    bindEggs();
     app.querySelector('[data-settings]').onclick = () => settingsScreen();
     const fsb = app.querySelector('[data-fs]'); if (fsb) fsb.onclick = toggleFullscreen;
     const sc = app.querySelector('.scenes'), tabs = [...app.querySelectorAll('[data-tab]')];
@@ -5544,7 +5590,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="mh-rew"><span>Chaque chapitre vaincu :</span><b>${ballHtml('master', 'tiny')} ×1</b><b>${ballHtml('hyper', 'tiny')} ×2</b></div>
         <div class="mh-prog"><div><i style="width:${chDone / G.CHAPTERS.length * 100}%"></i></div><span>${chDone} / ${G.CHAPTERS.length} chapitres · ${chDone} Master Ball${chDone > 1 ? 's' : ''} et ${chDone * 2} Hyper Balls gagnées</span></div>
         ${G.diffOpen('defi') ? '' : '<div class="mh-lock">🔒 Termine toute la campagne en <b>Enfer</b> pour relever le Challenge.</div>'}
-        <p class="mh-d">Des adversaires niveau 85 à 92, aussi coriaces dès le premier chapitre que la fin de l’Enfer, chapitre après chapitre, avec une équipe de vrais passionnés : pas de Légendaires, seulement le talent du dresseur.</p></div>` : `
+        <p class="mh-d">Les 12 chapitres revisités avec une équipe de vrais passionnés : pas de Légendaires, place aux Pokémon Normaux, Rares et Épiques que tu aimes. Un vrai défi, pas un mur : bien montés, ils vont au bout et rapportent des Balls à chaque chapitre.</p></div>` : `
       <div class="diff-tabs">${G.DIFF_ORDER.map(k => { const D = G.DIFFS[k], open = G.diffOpen(k); return `<button class="diff ${k === d ? 'on' : ''} ${open ? '' : 'locked'}" data-d="${k}" style="--dc:${D.color}">${open ? '' : '🔒 '}${D.n}</button>`; }).join('')}</div>
       <p class="muted small diff-note" style="--dc:${D0.color}">${d === 'normal' ? 'La campagne principale.' : `<b>${D0.n}</b> : la suite de la ${G.DIFFS[D0.prev].n}, dans les mêmes régions : ${d === 'hell' ? 'adversaires niveau 100 en formes ultimes, de plus en plus forts' : 'adversaires des niveaux 76 à 100, dès le départ un cran au-dessus de la fin de la Normale'}. Récompenses ×${String(D0.rew).replace('.', ',')}, bonbons L et une rune ${d === 'hell' ? 'Légendaire (Mythique au boss)' : 'Épique (Légendaire au boss)'} à chaque première victoire. S'ouvre quand la ${G.DIFFS[D0.prev].n} est terminée.`}</p>`}
       <div class="chapters">${G.CHAPTERS.map(({ n: r, biome, types }, c) => {
@@ -5896,7 +5942,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <div class="ach-list">${list.map(({ a, st }) => {
         const t = st.tier, pct = t ? Math.min(100, st.v / t[0] * 100) : 100;
         return `<div class="ach ${st.ready ? 'ready' : ''} ${t ? '' : 'done'}">${itemIcon(G.achIcon(a))}
-          <div class="ach-body"><b>${esc(G.achName(a))}</b><span class="small">${t ? esc(t[2]) : 'Série terminée !'}</span>
+          <div class="ach-body"><b>${a.hidden && !st.done && !st.ready ? '??? Succès secret' : esc(G.achName(a))}</b><span class="small">${a.hidden && !st.done && !st.ready ? 'Un secret se cache quelque part sur la route de l’Aventure…' : t ? esc(t[2]) : 'Série terminée !'}</span>
             <div class="xp"><i style="width:${pct}%"></i></div><span class="muted small">${t ? `${fmt(Math.min(st.v, t[0]))} / ${fmt(t[0])} · palier ${st.done + 1} / ${st.total}` : `${st.total} / ${st.total} paliers`}</span></div>
           <div class="ach-rew">${t ? `<div class="rew">${rewardTxt(t[1])}</div>${st.ready ? `<button class="btn primary small" data-claim="${a.id}">Récupérer</button>` : ''}` : '<span class="done-mark">✔</span>'}</div></div>`;
       }).join('')}</div></div>`;
