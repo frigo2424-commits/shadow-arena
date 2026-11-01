@@ -2744,13 +2744,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // ---------- Invocation : 4 zones de tirage, chacune avec son ticket ----------
-  // Normal 95 % Normaux/Rares · 4 % Épiques · 0,9 % Légendaires · 0,1 % Mythiques ; Élite 95 / 4,5 / 0,5 ;
-  // Légendaire 80 % Légendaires / 20 % Mythiques ; Chance : 25 Pokémon du jour (dont 1 Légendaire), tous à la même chance.
+  // Poké Ball 75 % Normaux/Rares · 20 % Épiques · 3 % Légendaires · 1,5 % Fabuleux · 0,5 % Mythiques ; Hyper Ball 95 / 3,9 / 0,6 / 0,5 ;
+  // Master Ball 50 % Légendaires / 30 % Fabuleux / 20 % Mythiques ; Chance : 25 Pokémon du jour (dont 1 Légendaire), tous à la même chance.
   const BANNERS = {
-    normal: { n: 'Invocation Poké Ball', ticket: 'normal', ball: 'poke', rates: [['N', 62], ['R', 33], ['E', 4], ['L', 0.7], ['F', 0.2], ['M', 0.1]], gems: 100 },
+    normal: { n: 'Invocation Poké Ball', ticket: 'normal', ball: 'poke', rates: [['N', 49], ['R', 26], ['E', 20], ['L', 3], ['F', 1.5], ['M', 0.5]], gems: 100 }, // Normaux + Rares 75 %
     chance: { n: 'Invocation Super Ball', ticket: 'chance', ball: 'super', weekly: true },
     elite: { n: 'Invocation Hyper Ball', ticket: 'elite', ball: 'hyper', rates: [['E', 95], ['L', 3.9], ['F', 0.6], ['M', 0.5]], gems: 1000 },
-    legend: { n: 'Invocation Master Ball', ticket: 'legend', ball: 'master', rates: [['L', 70], ['F', 10], ['M', 20]] },
+    legend: { n: 'Invocation Master Ball', ticket: 'legend', ball: 'master', rates: [['L', 50], ['F', 30], ['M', 20]] },
   };
   // Les « tickets » d'invocation sont des Poké Balls, de la plus commune à la plus rare.
   const TICKETS = { normal: { n: 'Poké Ball', ball: 'poke' }, chance: { n: 'Super Ball', ball: 'super' }, elite: { n: 'Hyper Ball', ball: 'hyper' }, legend: { n: 'Master Ball', ball: 'master' } };
