@@ -1267,6 +1267,11 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .modal .modal-head { position: sticky; top: -16px; z-index: 5; display: flex; align-items: center; gap: 10px; margin: -16px -16px 10px; padding: 10px 16px; background: var(--panel2); border-bottom: 1px solid var(--line); border-radius: 16px 16px 0 0; }
 .modal .modal-head h3 { margin: 0; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .modal .modal-head .btn { flex: none; }
+/* Fiche Pokémon : navigation entre fiches */
+.detail-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.detail-nav .btn { min-width: 44px; font-size: 18px; padding: 4px 12px; }
+.page.detail.slide-next { animation: slideNext .25s ease-out; } .page.detail.slide-prev { animation: slidePrev .25s ease-out; }
+@keyframes slideNext { from { opacity: .3; transform: translateX(-30px); } } @keyframes slidePrev { from { opacity: .3; transform: translateX(30px); } }
 
 </style>
 <div id="app"></div>
@@ -5094,7 +5099,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const q = app.querySelector('#mon-q'), cards = [...app.querySelectorAll('.mon-grid .mon-card')], cnt = app.querySelector('#mon-count');
     const applyQ = () => { const v = norm(q.value.trim()); monFilter.q = q.value; let n = 0; cards.forEach(c => { const ok = !v || norm(c.querySelector('b').textContent).includes(v); c.hidden = !ok; if (ok) n++; }); cnt.textContent = v ? `${n} résultat${n > 1 ? 's' : ''}` : `${cards.length} Pokémon`; };
     q.oninput = applyQ; applyQ();
-    app.querySelectorAll('[data-uid]').forEach(b => b.onclick = () => pickMode ? pickMode.pick(b.dataset.uid) : monDetail(b.dataset.uid, () => monsScreen()));
+    app.querySelectorAll('[data-uid]').forEach(b => b.onclick = () => { if (pickMode) return pickMode.pick(b.dataset.uid); detailNav = cards.filter(c => !c.hidden).map(c => c.dataset.uid); monDetail(b.dataset.uid, () => monsScreen()); });
   }
 
   // ---------- Fiche d'un Pokémon ----------
@@ -5114,13 +5119,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return `<section><h3>Bonus d’évolution</h3><ul class="evo-bonus">${plan.map(b => row(!b.future, sp(b.sid).n, A.evoBonusText(b, A.skillsOf(b.sid)))).join('')}
       ${ults.length ? row(!!m.form, m.form ? A.formOf(m).n : 'Forme ultime', 'toutes les compétences +10 %') : ''}</ul></section>`;
   }
+  // Navigation entre fiches : l'ordre de la liste d'où l'on vient (filtres, tri, recherche) ou celui de l'équipe.
+  let detailNav = null;
   function monDetail(uidv, back) {
     const s = S(), m = s.mons.find(x => x.uid === uidv); if (!m) return back();
+    const nav = (detailNav || []).filter(u => s.mons.some(x => x.uid === u)), ni = nav.indexOf(uidv);
+    const step = d => { if (ni < 0 || nav.length < 2) return; const u = nav[(ni + d + nav.length) % nav.length]; monDetail(u, back); const pg = app.querySelector('.page.detail'); if (pg) pg.classList.add(d > 0 ? 'slide-next' : 'slide-prev'); };
     const k = A.rarOf(m), st = G.statsOf(m), cap = A.levelCap(m), need = G.expNeed(m.lv);
     const evos = A.evolutionsOf(m.sid), ults = m.form ? [] : A.ultimatesOf(m.sid);
     const atCap = m.lv >= cap;
     const ec = evos.length && !m.form ? G.evolveCost(m) : null;
-    app.innerHTML = topbar(monName(m)) + `<div class="page detail">
+    app.innerHTML = topbar(monName(m)) + `<div class="page detail">${ni >= 0 && nav.length > 1 ? `<div class="detail-nav"><button class="btn ghost small" data-nav="-1" aria-label="Pokémon précédent">‹</button><span class="muted small">${ni + 1} / ${nav.length} · glisse pour changer</span><button class="btn ghost small" data-nav="1" aria-label="Pokémon suivant">›</button></div>` : ''}
       <div class="detail-hero" style="--rc:${rar(k).color}">${monImg(m, 'big')}<div><span class="rar-tag" style="--rc:${rar(k).color}">${rar(k).n}</span>${m.shiny ? ' <span class="rar-tag shiny">✨ Chromatique +20 %</span>' : ''}
         <h2>${esc(monName(m))}</h2><div>${monTypes(m).map(typeBadge).join('')} ${roleTag(m.sid)}</div>${starsHtml(m)}
         <div class="lvl-line">Niveau <b>${m.lv}</b> / ${cap}${atCap ? ' <span class="cap-tag">MAX</span>' : ''}</div>
@@ -5147,6 +5156,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <div class="row end"><button class="btn ${s.team.includes(m.uid) ? 'ghost' : 'primary'}" data-team>${s.team.includes(m.uid) ? 'Retirer de l’équipe' : 'Ajouter à l’équipe'}</button></div></div>`;
     bindBack(back);
     const re = () => { monDetail(uidv, back); showNotices(); };
+    app.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => step(+b.dataset.nav));
+    // Glisser vers la droite : Pokémon suivant ; vers la gauche : précédent.
+    const pg = app.querySelector('.page.detail'); let sx = 0, sy = 0, ok = false;
+    pg.addEventListener('touchstart', e => { const t = e.touches[0]; ok = !e.target.closest('input, select, .evo-row, .candy-row, .rune-slots, .chips'); sx = t.clientX; sy = t.clientY; }, { passive: true });
+    pg.addEventListener('touchend', e => { if (!ok) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) step(dx > 0 ? 1 : -1); }, { passive: true });
     app.querySelectorAll('[data-candy]').forEach(b => b.onclick = () => { const before = m.lv; const n = G.feed(m, b.dataset.candy, 1); if (!n) toast('Pas assez de Pokédollars.'); else if (m.lv > before) toast(`${monName(m)} passe au niveau ${m.lv} !`); re(); });
     app.querySelector('[data-extract]').onclick = async () => {
       const p = G.extractPreview(m); if (!p) return;
@@ -5376,7 +5390,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const re = () => teamScreen(after);
     app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { if (s.team.length <= 1) return toast('Il faut au moins un Pokémon.'); s.team = s.team.filter(u => u !== b.dataset.rm); G.save(); re(); });
     app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { G.setRow(b.dataset.mv, B.ROWS[+b.dataset.to]); re(); });
-    app.querySelectorAll('[data-see]').forEach(b => b.onclick = () => monDetail(b.dataset.see, re));
+    app.querySelectorAll('[data-see]').forEach(b => b.onclick = () => { detailNav = s.team.slice(); monDetail(b.dataset.see, re); });
     app.querySelectorAll('[data-add]').forEach(b => b.onclick = () => monsScreen({ back: re, pick: u => { if (!s.team.includes(u) && s.team.length < G.TEAM_SIZE) s.team.push(u); G.save(); re(); } }));
     app.querySelector('[data-best]').onclick = () => { s.team = bestTeam(s.mons); for (const u of s.team) if (s.formation) delete s.formation[u]; G.save(); re(); };
     const d = app.querySelector('[data-done]'); if (d) d.onclick = after;
