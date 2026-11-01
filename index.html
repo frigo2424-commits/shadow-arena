@@ -2744,13 +2744,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // ---------- Invocation : 4 zones de tirage, chacune avec son ticket ----------
-  // Poké Ball 75 % Normaux/Rares · 20 % Épiques · 3 % Légendaires · 1,5 % Fabuleux · 0,5 % Mythiques ; Hyper Ball 80 % Épiques · 12,5 % Légendaires · 5 % Fabuleux · 2,5 % Mythiques ;
-  // Master Ball 50 % Légendaires / 30 % Fabuleux / 20 % Mythiques ; Chance : 25 Pokémon du jour (dont 1 Légendaire), tous à la même chance.
+  // Poké Ball 87,5 % Normaux/Rares · 10 % Épiques · 1,6 % Légendaires · 0,6 % Fabuleux · 0,3 % Mythiques ;
+  // Hyper Ball 89 % Épiques · 7,5 % Légendaires · 2,25 % Fabuleux · 1,25 % Mythiques ; Master Ball 60 / 20 / 20 ; Chance : 25 Pokémon du jour (dont 1 Légendaire), tous à la même chance.
   const BANNERS = {
-    normal: { n: 'Invocation Poké Ball', ticket: 'normal', ball: 'poke', rates: [['N', 49], ['R', 26], ['E', 20], ['L', 3], ['F', 1.5], ['M', 0.5]], gems: 100 }, // Normaux + Rares 75 %
+    normal: { n: 'Invocation Poké Ball', ticket: 'normal', ball: 'poke', rates: [['N', 57], ['R', 30.5], ['E', 10], ['L', 1.6], ['F', 0.6], ['M', 0.3]], gems: 100 },
     chance: { n: 'Invocation Super Ball', ticket: 'chance', ball: 'super', weekly: true },
-    elite: { n: 'Invocation Hyper Ball', ticket: 'elite', ball: 'hyper', rates: [['E', 80], ['L', 12.5], ['F', 5], ['M', 2.5]], gems: 1000 },
-    legend: { n: 'Invocation Master Ball', ticket: 'legend', ball: 'master', rates: [['L', 50], ['F', 30], ['M', 20]] },
+    elite: { n: 'Invocation Hyper Ball', ticket: 'elite', ball: 'hyper', rates: [['E', 89], ['L', 7.5], ['F', 2.25], ['M', 1.25]], gems: 1000 },
+    legend: { n: 'Invocation Master Ball', ticket: 'legend', ball: 'master', rates: [['L', 60], ['F', 20], ['M', 20]] },
   };
   // Les « tickets » d'invocation sont des Poké Balls, de la plus commune à la plus rare.
   const TICKETS = { normal: { n: 'Poké Ball', ball: 'poke' }, chance: { n: 'Super Ball', ball: 'super' }, elite: { n: 'Hyper Ball', ball: 'hyper' }, legend: { n: 'Master Ball', ball: 'master' } };
