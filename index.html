@@ -1202,6 +1202,13 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .secret-mon { display: grid; justify-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: #fff; cursor: pointer; transition: transform .15s, border-color .15s; }
 .secret-mon:hover, .secret-mon:focus-visible { transform: translateY(-3px); border-color: var(--gold); }
 .secret-mon .spr { width: 96px; height: 96px; }
+/* Récompense cachée : apparition savourée, choix puis confirmation */
+.secret-pick .secret-mon { animation: secretIn .6s cubic-bezier(.2,1.3,.4,1) both; }
+.secret-pick .secret-mon:nth-child(2) { animation-delay: .25s; }
+@keyframes secretIn { from { opacity: 0; transform: translateY(18px) scale(.8); } }
+.secret-pick.wait .secret-mon { pointer-events: none; filter: saturate(.6) brightness(.85); }
+.secret-mon.on { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,201,74,.55); transform: translateY(-3px); }
+.secret-ok { justify-self: center; min-width: 200px; margin-top: 4px; }
 
 </style>
 <div id="app"></div>
@@ -3283,6 +3290,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // ---------- Pokédex et état ----------
   // Récompense cachée de l'écran Aventure : Salamèche ou Pikachu au choix, une seule fois (une Âme si la lignée est déjà là).
   const SECRET_CHOICES = [4, 25];
+  // Première version : un toucher de trop pouvait choisir le Pokémon sans le vouloir. La récompense cachée déjà prise
+  // avec cette version redevient disponible une fois (le Pokémon reçu reste acquis, le succès ne se recompte pas).
+  function migrateSecret() { if (S.secret && S.secretV !== 2) { S.secretPrev = S.secret; delete S.secret; } S.secretV = 2; }
   function claimSecret(sid) {
     if (S.secret || !SECRET_CHOICES.includes(sid)) return null;
     S.secret = sid;
@@ -3300,13 +3310,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); arenaRefresh(); return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
     if (!snap || !snap.state) return false;
     try { S = Object.assign(fresh(), JSON.parse(snap.state)); localStorage.setItem(KEY, snap.state); localStorage.setItem(SAVED_AT, String(snap.at || Date.now())); } catch (e) { return false; }
-    migrateRunes(); migrateSouls(); arenaRefresh(); return true;
+    migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); return true;
   }
   const exportCode = () => 'PSA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(snapshot()))));
   function importCode(code) {
@@ -4734,10 +4744,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   </svg>`;
   // Récompense cachée : Pikachu et Salamèche face à face sur la route (zones invisibles posées sur l'illustration).
   const eggs = () => `<button class="egg" data-egg="25" aria-hidden="true" tabindex="-1" style="left:54.5%;top:77.5%;width:9%;height:13%"></button><button class="egg" data-egg="4" aria-hidden="true" tabindex="-1" style="left:64.4%;top:79.5%;width:7%;height:12%"></button>`;
-  let eggN = 0, eggT = 0;
+  let eggN = 0, eggT = 0, eggLock = 0;
   function bindEggs() {
     app.querySelectorAll('[data-egg]').forEach(b => b.onclick = e => {
-      e.stopPropagation(); const now = Date.now();
+      e.stopPropagation(); const now = Date.now(); if (now < eggLock) return;
       eggN = now - eggT < 1500 ? eggN + 1 : 1; eggT = now; // 10 touchers de suite, sans trop de pause
       b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop');
       if (eggN >= 10) { eggN = 0; secretReward(); }
@@ -4747,9 +4757,19 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function secretReward() {
     if (S().secret) return toast('✨ Tu as déjà trouvé la récompense cachée !');
     Music.fanfare();
-    modal(`<div class="secret"><div class="secret-burst">🎉</div><h3>Bravo, tu as débloqué la récompense cachée !</h3><p class="muted small">Choisis ton compagnon :</p>
-      <div class="secret-pick">${G.SECRET_CHOICES.map(id => `<button class="secret-mon" data-sid="${id}">${speciesImg(id)}<b>${esc(sp(id).n)}</b><span class="rar-tag" style="--rc:${rar(A.RARITY[id]).color}">${rar(A.RARITY[id]).n}</span></button>`).join('')}</div></div>`,
-      (bg, close) => bg.querySelectorAll('[data-sid]').forEach(x => x.onclick = () => close(+x.dataset.sid)))
+    eggLock = Date.now() + 2500; // les touchers qui suivent la découverte ne comptent plus
+    // Le choix ne s'active qu'après l'animation, puis doit être confirmé : un toucher en trop ne choisit rien.
+    modal(`<div class="secret"><div class="secret-burst">🎉</div><h3>Bravo, tu as débloqué la récompense cachée !</h3><p class="muted small">Choisis ton compagnon, puis confirme :</p>
+      <div class="secret-pick wait">${G.SECRET_CHOICES.map(id => `<button class="secret-mon" data-sid="${id}">${speciesImg(id)}<b>${esc(sp(id).n)}</b><span class="rar-tag" style="--rc:${rar(A.RARITY[id]).color}">${rar(A.RARITY[id]).n}</span></button>`).join('')}</div>
+      <button class="btn primary secret-ok" data-ok disabled>Choisis un Pokémon</button></div>`,
+      (bg, close) => {
+        const pick = bg.querySelector('.secret-pick'), ok = bg.querySelector('[data-ok]'); let chosen = 0;
+        setTimeout(() => pick.classList.remove('wait'), 1800);
+        bg.querySelectorAll('[data-sid]').forEach(x => x.onclick = () => { if (pick.classList.contains('wait')) return;
+          chosen = +x.dataset.sid; bg.querySelectorAll('[data-sid]').forEach(y => y.classList.toggle('on', y === x));
+          ok.disabled = false; ok.textContent = `Choisir ${sp(chosen).n}`; });
+        ok.onclick = () => { if (chosen) close(chosen); };
+      }, { locked: true })
       .then(sid => { if (!sid) return; const r = G.claimSecret(sid); if (!r) return;
         toast(r.soul ? `+1 Âme de ${sp(sid).n} (tu l’avais déjà) !` : `${sp(sid).n} rejoint ton équipe !`); showNotices(); hub(); });
   }
