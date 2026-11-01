@@ -1909,7 +1909,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 </script>
 <script>
 // Généré par tools/arena-power.js : corrections de stats par lignée (racine) mesurées par simulation.
-(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.191,48:0.884,56:0.884,64:0.940,84:0.884,95:1.338,100:0.831,114:1.124,120:0.940,123:0.884,127:0.940,128:0.884,133:0.828,173:0.940,175:0.884,177:0.884,193:0.884,200:0.831,215:0.884,220:0.884,236:0.884,241:0.831,280:0.884,287:0.781,298:1.262,314:0.884,316:0.940,328:0.884,396:0.884,418:0.884,431:0.781,436:1.124,441:0.884,449:1.060,479:1.191,511:0.884,524:1.124,527:0.690,539:0.940,543:0.884,546:0.884,550:0.884,551:0.884,554:0.884,595:0.781,597:1.124,607:0.884,615:0.884,616:0.884,629:0.884,669:0.940,676:0.734,677:0.781,679:1.191,694:0.940,712:1.060,742:0.831,744:0.940,757:0.884,777:0.940,803:0.831,805:1.262,806:0.940,840:1.096,846:0.884,876:0.940,877:0.884,882:0.940,921:0.884,924:0.734,932:1.060,944:0.884,955:0.831,963:1.191,967:0.940,988:0.831,994:0.884,1010:0.884,1022:0.781}; })(typeof window !== 'undefined' ? window : globalThis);
+(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,69:0.940,77:0.940,84:0.831,95:1.338,100:0.831,114:1.060,116:0.940,123:0.884,127:0.940,128:0.831,140:0.940,177:0.884,193:0.884,200:0.884,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.831,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,406:0.940,418:0.884,427:0.940,431:0.781,436:1.124,441:0.940,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,527:0.734,529:0.940,532:0.940,539:0.884,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.884,585:0.940,595:0.831,597:1.191,607:0.940,610:0.940,615:0.940,616:0.831,619:0.940,676:0.781,677:0.831,679:1.124,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,757:0.884,766:0.940,777:0.884,778:0.940,796:0.940,803:0.884,805:1.262,837:1.060,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,932:1.060,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.191,967:0.940,973:0.884,974:0.940,978:0.940,986:0.940,988:0.831,989:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
@@ -1923,7 +1923,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const STAT_FR = { atk: 'Attaque', def: 'Défense', spa: 'Atq. Spé', spd: 'Déf. Spé', spe: 'Vitesse', acc: 'Précision' };
   const typeFactor = (atkType, defTypes) => defTypes.reduce((f, t) => f * ((D.eff[atkType] || {})[t] ?? 1), 1);
   const AIL_FR = { PAR: 'paralysé', SOM: 'endormi', GEL: 'gelé', BRU: 'brûlé', PSN: 'empoisonné' };
-  const HP_MULT = 3; // les combats d'équipe durent plus longtemps qu'en duel
+  const HP_MULT = 1.8; // PV de combat : assez pour survivre à plusieurs coups, sans combats interminables
+  const HEAL_SCALE = 0.8;
 
   // Formation : 3 lignes. Tant qu'un allié plus avancé tient debout, les lignes arrière sont couvertes :
   // elles subissent moins de dégâts des attaques ciblées et l'IA adverse les vise moins souvent.
@@ -2164,7 +2165,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const forced = taunter(b, u);
     let single = forced || (choice.target && choice.target.alive && choice.target.side !== u.side && canTarget(b, u, choice.target) ? choice.target : targetsFor(b, u)[0]);
     if (sk.aim && sk.aim !== 'spread' && !forced) single = aimTarget(b, u, sk) || single;
-    const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * (u.role === 'heal' ? 1.2 : 1));
+    // Soins réduits de 20 % : un soin ne doit pas effacer à lui seul plusieurs attaques.
+    const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * HEAL_SCALE * (u.role === 'heal' ? 1.2 : 1));
     const heal = (t, pct) => {
       const h = Math.min(t.maxHp - t.hp, healAmt(t, pct));
       t.hp += h; log.push({ k: 'heal', who: t.uid, amount: h });
@@ -2841,7 +2843,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const threat = list => list.reduce((a, e) => { const st = statsOf(e.mon, { mult: e.mult }); return a + st.hp / 2 + st.atk + st.def + st.spa + st.spd + st.spe * 1.2; }, 0);
   // Réglage de difficulté par étape, mesuré par simulation (tools/arena-tune.js) : une équipe de référence
   // (tank, soigneur, 2 attaquants) au niveau de l'étape gagne de ~95 % au début à ~70 % à la fin, ~60 % contre les boss.
-  const STAGE_TUNE = [2.31, 2.45, 1.01, 1.80, 1.03, 2.22, 1.62, 1.02, 1.10, 1.17, 2.62, 2.78, 0.85, 2.02, 1.40, 3.39, 0.90, 1.16, 1.99, 3.69, 1.91, 1.61, 0.93, 1.94, 1.12, 1.66, 1.42, 1.04, 1.41, 0.87, 2.79, 2.46, 0.98, 1.53, 5.84, 2.26, 1.23, 2.22, 1.84, 5.77, 5.96, 1.35, 0.97, 2.13, 2.69, 0.95, 1.43, 2.85, 0.89, 1.71, 2.63, 2.31, 1.88, 1.13, 2.91, 1.93, 1.48, 1.95, 0.72, 2.38, 5.96, 1.43, 1.12, 1.99, 2.03, 1.80, 1.61, 1.30, 1.29, 1.09, 3.48, 2.29, 1.09, 2.43, 1.59, 1.20, 1.33, 2.29, 1.11, 2.19, 2.60, 1.57, 1.86, 0.86, 1.33, 1.24, 2.51, 1.56, 0.65, 1.13, 2.89, 1.65, 0.93, 1.71, 1.46, 1.13, 4.36, 1.14, 0.48, 0.98, 5.80, 2.27, 1.74, 0.82, 1.16, 3.28, 1.84, 0.93, 1.34, 1.69, 2.79, 1.91, 1.25, 2.20, 0.95, 1.03, 2.78, 0.87, 1.55, 1.02];
+  const STAGE_TUNE = [2.14, 2.43, 0.86, 1.84, 0.93, 2.43, 1.72, 0.93, 1.00, 1.10, 3.01, 2.85, 0.66, 1.93, 1.40, 4.05, 0.86, 1.06, 2.32, 5.29, 2.14, 1.86, 0.78, 2.31, 1.00, 1.77, 1.45, 0.92, 1.27, 0.79, 3.48, 2.53, 0.76, 1.31, 5.96, 2.26, 0.97, 2.69, 1.80, 5.96, 5.96, 1.35, 0.82, 2.53, 3.43, 0.80, 1.51, 3.65, 0.72, 1.84, 2.97, 2.41, 1.79, 0.92, 3.43, 1.78, 1.28, 2.17, 0.53, 3.11, 5.96, 1.23, 1.00, 2.16, 2.19, 1.80, 1.56, 1.35, 1.19, 1.08, 3.97, 2.11, 0.92, 2.72, 1.65, 1.12, 1.31, 2.85, 0.99, 2.79, 2.62, 1.49, 2.03, 0.85, 1.32, 1.12, 3.01, 1.80, 0.50, 1.16, 3.72, 1.50, 0.80, 1.94, 1.31, 1.01, 5.96, 1.15, 0.33, 0.96, 5.96, 2.37, 1.72, 0.70, 1.02, 4.48, 1.50, 0.65, 1.17, 1.84, 3.00, 1.71, 1.05, 2.56, 0.87, 0.78, 3.53, 0.70, 1.50, 0.92];
   // Renfort progressif de la fin de campagne (jusqu'à +15 % au dernier chapitre), qui compense la force des
   // passifs de Légendaires et Mythiques face à l'équipe de référence du réglage.
   const lateBoost = k => 1 + 0.08 * Math.max(0, k - 40) / (CHAPTERS.length * CHAPTER_STAGES - 41);
@@ -4795,7 +4797,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
       ${evoBonusHtml(m)}
       <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
-      <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(st[key])}</b></div>`).join('')}</div><p class="muted small">En combat, les PV sont multipliés par ${B.HP_MULT}.</p></section>
+      <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(st[key])}</b></div>`).join('')}</div><p class="muted small">En combat, les PV sont multipliés par ${String(B.HP_MULT).replace(".", ",")}.</p></section>
       ${(n => { const so = G.soulsOf(m.sid), mx = n >= G.DUPE_MAX; return `<section class="soul-sec"><h3>Éveil des Âmes · ${n}/${G.DUPE_MAX}</h3>
         <div class="dupe-line"><div class="dupe-bar">${G.DUPE_BONUS.map((v, i) => `<i class="${i < n ? 'on' : ''}" title="Palier ${i + 1} : +${v} %"></i>`).join('')}</div><b>${n ? '+' + G.DUPE_BONUS[n - 1] + ' % stats' : 'aucun bonus'}</b></div>
         <div class="row soul-row"><span class="soul-gem">${speciesImg(A.rootOf(m.sid), 'mini')}<i>×${so}</i></span><span class="small">Âmes de ${esc(sp(A.rootOf(m.sid)).n)}${mx ? ' · éveil maximal' : ` · palier ${n + 1} : +${G.DUPE_BONUS[n]} % stats pour ${fmt(G.SOUL_GOLD(n))} ₽`}</span>
