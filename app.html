@@ -2700,7 +2700,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (S.gold < c.gold) return 'gold';
     S.crystals[c.type] -= c.crystals; S.gold -= c.gold; mon.sid = toSid; markDex(toSid); S.stats.evos = (S.stats.evos || 0) + 1; qTrack('evo'); save(); return true;
   }
-  const ULT_COST = { mega: { item: 'megaCrystal', n: 3, gold: 100000 }, gmax: { item: 'dynamax', n: 3, gold: 100000 } };
+  const ULT_COST = { mega: { item: 'megaCrystal', n: 1, gold: 100000 }, gmax: { item: 'dynamax', n: 1, gold: 100000 } }; // 1 objet ultime par forme
   // Forme ultime possible dès le niveau 80 (les Légendaires montent jusqu'à 100 sans elle).
   function canAscend(mon) { return !mon.form && A.ultimatesOf(mon.sid).length && mon.lv >= Math.min(80, A.levelCap(mon)); }
   function ascend(mon, key) {
@@ -2849,6 +2849,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     { id: 'pulls', cat: 'Collection', n: 'Invocations', icon: 'master-ball', val: () => S.stats.pulls || 0, tiers: [[10, T(3)], [30, T(0, 1)], [60, T(5)], [100, T(0, 1, 1)], [200, T(5, 1)], [400, T(0, 2, 1)], [700, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Invoquer ${n} fois`]) },
     // Succès caché : taper 10 fois de suite sur Pikachu ou Salamèche, face à face sur la route de l'écran Aventure.
     { id: 'secret', cat: 'Collection', n: 'Récompense cachée', icon: 'poke-radar', hidden: true, val: () => S.secret ? 1 : 0, tiers: [[1, Object.assign(T(0, 0, 1), { exact: true }), 'Trouver la récompense cachée de l’Aventure']] },
+    // Éveil : de quoi faire une Méga-Évolution et un Gigamax avant d'ouvrir le Sanctuaire Ultime.
+    { id: 'awaken', cat: 'Entraînement', n: 'Prêt pour l’éveil', icon: 'mega-bracelet', val: () => S.mons.filter(m => m.lv >= 80).length,
+      tiers: [[1, Object.assign(T(0, 0, 0), { exact: true, items: { megaCrystal: 1 } }), 'Monter un Pokémon au niveau 80'], [2, Object.assign(T(0, 0, 0), { exact: true, items: { dynamax: 1 } }), 'Monter 2 Pokémon au niveau 80']] },
     { id: 'level', cat: 'Entraînement', n: 'Meilleur niveau', icon: 'rare-candy', val: () => Math.max(0, ...S.mons.map(m => m.lv)), tiers: [[10, T(2)], [20, T(3)], [30, T(3, 1)], [40, T(3, 0, 1)], [50, T(5, 1)], [60, T(5, 0, 1)], [70, T(0, 2, 1)], [80, T(0, 2, 1, 1)], [90, T(0, 0, 2)], [100, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Monter un Pokémon au niveau ${n}`]) },
     { id: 'team80', cat: 'Entraînement', n: 'Équipe aguerrie', icon: 'exp-share', val: () => S.mons.filter(m => m.lv >= 50).length, tiers: [[2, T(3)], [4, T(0, 1, 1)], [8, T(5, 1)], [12, T(0, 2, 1)]].map(([n, r]) => [n, r, `Avoir ${n} Pokémon niveau 50 ou plus`]) },
     { id: 'evos', cat: 'Entraînement', n: 'Évolutions', icon: 'shiny-stone', val: () => S.stats.evos || 0, tiers: [[1, T(3)], [3, T(0, 1)], [6, T(3, 0, 1)], [10, T(5, 1)], [20, T(0, 2, 1)], [35, T(0, 0, 1, 1)]].map(([n, r]) => [n, r, `Faire évoluer ${n} fois`]) },
@@ -2865,7 +2868,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const carry = {};
     a.tiers = a.tiers.map(([n, r, l]) => {
       const t = {};
-      if (r.exact) return [n, { tickets: Object.assign({}, r.tickets), gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5 }, l];
+      if (r.exact) return [n, { tickets: Object.assign({}, r.tickets), gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5, items: r.items }, l];
       for (const [k, v] of Object.entries(r.tickets || {})) { carry[k] = (carry[k] || 0) + v * (BALL_CUT[k] || 1); const g = Math.floor(carry[k] + 1e-9); if (g) { t[k] = g; carry[k] -= g; } }
       return [n, { tickets: t, gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5 }, l];
     });
@@ -2946,14 +2949,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const a = ACHIEVEMENTS.find(x => x.id === id); if (!a) return null;
     const st = achState(a); if (!st.ready) return null;
     S.ach = S.ach || {}; S.ach[id] = st.done + 1;
-    const loot = { tickets: st.tier[1].tickets, gems: st.tier[1].gems || 0 };
+    const loot = { tickets: st.tier[1].tickets, gems: st.tier[1].gems || 0, items: st.tier[1].items };
     applyLoot(loot); save(); return loot;
   }
   function claimAll() {
     const tot = { tickets: {}, gems: 0 }; let n = 0;
     for (let again = true; again;) {
       again = false;
-      for (const a of ACHIEVEMENTS) { const l = claimAch(a.id); if (l) { again = true; n++; tot.gems += l.gems; for (const [k, v] of Object.entries(l.tickets)) tot.tickets[k] = (tot.tickets[k] || 0) + v; } }
+      for (const a of ACHIEVEMENTS) { const l = claimAch(a.id); if (l) { again = true; n++; tot.gems += l.gems; for (const [k, v] of Object.entries(l.tickets)) tot.tickets[k] = (tot.tickets[k] || 0) + v; for (const [k, v] of Object.entries(l.items || {})) { tot.items = tot.items || {}; tot.items[k] = (tot.items[k] || 0) + v; } } }
     }
     return n ? Object.assign(tot, { n }) : null;
   }
@@ -3172,6 +3175,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     2: { key: 'gmax', n: 'Autel Gigamax', boss: 888, bossN: 'Zacian', item: 'dynamax', itemN: 'Particules Dynamax', biome: 'storm' },
   };
   const ALTAR_K = { 1: +(globalThis.AK1 || 0.82), 2: +(globalThis.AK2 || 0.66) }; // Autel Méga, Autel Gigamax (ennemis très endurants)
+  // Butin des autels : le premier succès de la semaine sur chaque autel donne son objet ultime, ensuite 2 % de chance.
+  const ALTAR_DROP = 0.02;
+  const altarWeek = () => { const wk = weekKey(); if (!S.altarWk || S.altarWk.wk !== wk) S.altarWk = { wk, got: {} }; return S.altarWk; };
+  const altarWeeklyLeft = f => !altarWeek().got[f];
   const dgFloors = k => k === 'ultime' ? 2 : FLOORS;
   const floorUnlocked = (k, f) => k === 'ultime' ? ultimeOpen() && f >= 1 && f <= 2 : f === 1 || (S.dungeons[k] || 0) >= f - 1;
   // Donjons : 3 vagues, la dernière avec le boss final du sous-niveau. Ton équipe garde ses PV d'une vague à l'autre.
@@ -3305,7 +3312,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       }
     }
     if (k === 'or') loot.gold *= 6;
-    if (k === 'ultime') { const al = ALTARS[f]; loot.gold = 6200; loot.items = { [al.item]: 1 + (Math.random() < 0.3 ? 1 : 0) }; if (!(S.altars || {})[f]) loot.gems = 250; } // 1 ou 2 objets ultimes par victoire
+    if (k === 'ultime') { const al = ALTARS[f], wk = altarWeek(); loot.gold = 6200; loot.items = {}; if (!wk.got[f]) { wk.got[f] = true; loot.items[al.item] = 1; } else if (Math.random() < ALTAR_DROP) loot.items[al.item] = 1; if (!(S.altars || {})[f]) loot.gems = 250; } // 1 objet garanti par autel et par semaine, puis 2 %
     else if (f === FLOORS && !(S.dungeonsBoss || {})[k]) loot.gems = 200;
     // 3 vagues : butin augmenté de 50 % (et une rune de plus dès le 5e sous-niveau de la Forge).
     loot.gold = Math.round(loot.gold * 1.5);
@@ -3495,7 +3502,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
     QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
-    RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors,
+    RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -5904,11 +5911,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     app.innerHTML = topbar(d.n) + `<div class="page dg-page">
       <div class="dg-fhero" data-bio="sky"><div class="dg-fhero-t"><span>Sanctuaire Ultime</span><b>Les deux autels</b><div class="dg-loot">${itemIcon('mega-bracelet')} Méga-Cristaux · Particules Dynamax</div>${depthBar(s.dungeons.ultime || 0, 2)}</div>
         <div class="dg-fboss">${speciesImg(384, 'corrupt')}<small>Gardiens corrompus</small></div></div>
-      <p class="muted small">Un cran au-dessus du 10e sous-niveau des autres donjons : 3 vagues de Pokémon tous en forme ultime, niveau 100, puis leur gardien. Chaque victoire rapporte 1 ou 2 objets ultimes (3 suffisent pour éveiller une forme).</p>
+      <p class="muted small">Un cran au-dessus du 10e sous-niveau des autres donjons : 3 vagues de Pokémon tous en forme ultime, niveau 100, puis leur gardien. Chaque autel garantit 1 objet ultime à ta première victoire de la semaine (1 suffit pour éveiller une forme), puis 2 % de chance à chaque victoire.</p>
       <div class="altars">${[1, 2].map(f => { const al = G.ALTARS[f], cast = G.dungeonCast('ultime', f), done = (s.altars || {})[f];
         return `<button class="altar altar-${al.key} ${done ? 'done' : ''}" data-f="${f}"><span class="altar-kind">${al.key === 'mega' ? 'Méga-Évolution' : 'Gigamax'}</span><b>${esc(al.n)}</b>
           <span class="altar-boss">${monImg({ sid: al.boss, form: al.bossForm, shiny: false }, 'corrupt')}</span><small>${esc(al.bossN)} corrompu et sa garde : ${cast.guards.slice(0, 3).map(id => esc(sp(id).n)).join(', ')}…</small>
-          <span class="altar-loot">${itemIcon(al.key === 'mega' ? 'mega-bracelet' : 'dynamax-band')} ${esc(al.itemN)} ×1–2 · tu en as ${s.items[al.item] || 0}</span>${done ? '<span class="altar-done">✓ déjà vaincu</span>' : '<span class="altar-done new">Première victoire : 250 gemmes</span>'}</button>`; }).join('')}</div></div>`;
+          <span class="altar-loot">${itemIcon(al.key === 'mega' ? 'mega-bracelet' : 'dynamax-band')} ${esc(al.itemN)} · ${G.altarWeeklyLeft(f) ? '<b>1 garanti cette semaine</b>' : 'garanti déjà obtenu, 2 % jusqu’à lundi'} · tu en as ${s.items[al.item] || 0}</span>${done ? '<span class="altar-done">✓ déjà vaincu</span>' : '<span class="altar-done new">Première victoire : 250 gemmes</span>'}</button>`; }).join('')}</div></div>`;
     bindBack(dungeonsScreen);
     if (window.ArenaBiomes) ArenaBiomes.attach(app.querySelector('.dg-fhero'), 'sky');
     app.querySelectorAll('[data-f]').forEach(x => x.onclick = () => { const spec = G.dungeonBattle('ultime', +x.dataset.f); prepScreen(spec, G.ALTARS[+x.dataset.f].n, () => altarScreen(), () => altarScreen()); });
@@ -6134,7 +6141,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (fresh.length) toast(`🏆 Succès débloqué${fresh.length > 1 ? 's' : ''} : ${fresh.slice(0, 2).join(' · ')}${fresh.length > 2 ? '…' : ''} — à récupérer dans Succès.`);
     return Promise.resolve();
   }
-  const rewardTxt = r => [r.gems ? `<span>✦ ${r.gems}</span>` : '', ticketsTxt(r.tickets)].filter(Boolean).join(' ');
+  const ITEM_N = { megaCrystal: ['mega-bracelet', 'Méga-Cristal'], dynamax: ['dynamax-band', 'Particule Dynamax'] };
+  const itemsTxt = it => Object.entries(it || {}).filter(([, v]) => v).map(([k, v]) => `<span class="tk">${itemIcon(ITEM_N[k][0])} ${ITEM_N[k][1]} ×${v}</span>`).join(' ');
+  const rewardTxt = r => [r.gems ? `<span>✦ ${r.gems}</span>` : '', ticketsTxt(r.tickets), itemsTxt(r.items)].filter(Boolean).join(' ');
   let achCat = 'Tout';
   // ---------- Quêtes quotidiennes et hebdomadaires ----------
   let questTab = 'day';
@@ -6186,7 +6195,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const all = app.querySelector('[data-all]'); if (all) all.onclick = () => { const l = G.claimAll(); if (l) gotModal(l, l.n); };
   }
   async function gotModal(loot, n) {
-    await modal(`<div class="notice"><span class="kicker">${n > 1 ? n + ' succès récupérés' : 'Succès récupéré'}</span><h2>Récompenses</h2><div class="loot big-loot">${loot.gems ? `<span>✦ ${loot.gems} gemmes</span>` : ''}${Object.entries(loot.tickets).map(([k, v]) => `<span>${ballHtml(G.TICKETS[k].ball, 'tiny')} ${G.TICKETS[k].n} ×${v}</span>`).join('')}</div></div>
+    await modal(`<div class="notice"><span class="kicker">${n > 1 ? n + ' succès récupérés' : 'Succès récupéré'}</span><h2>Récompenses</h2><div class="loot big-loot">${loot.gems ? `<span>✦ ${loot.gems} gemmes</span>` : ''}${Object.entries(loot.tickets).map(([k, v]) => `<span>${ballHtml(G.TICKETS[k].ball, 'tiny')} ${G.TICKETS[k].n} ×${v}</span>`).join('')}${itemsTxt(loot.items)}</div></div>
       <div class="row end"><button class="btn primary" data-close>Super !</button></div>`, null, { cls: 'center' });
     achievementsScreen();
   }
