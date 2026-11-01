@@ -2872,12 +2872,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const lateBoost = k => 1 + 0.08 * Math.max(0, k - 40) / (CHAPTERS.length * CHAPTER_STAGES - 41);
   const stageFactor = (c, i) => (STAGE_TUNE ? STAGE_TUNE[c * CHAPTER_STAGES + i] : 1) * lateBoost(c * CHAPTER_STAGES + i);
   // Trois difficultés : mêmes équipes, plus haut niveau et plus fortes, meilleures récompenses.
-  // Un chapitre en Difficile s'ouvre quand son boss est vaincu en Normale ; en Enfer, quand il l'est en Difficile.
+  // Le Difficile s'ouvre quand la Normale est terminée, l'Enfer quand le Difficile l'est (courbe enchaînée, voir CURVE).
+  // lv / mult de hard et hell ne servent plus qu'au Challenge (lv) ; la campagne suit CURVE.
   const DIFFS = {
     normal: { n: 'Normale', lv: 0, mult: 0.82, rew: 1, color: '#35e0ff' },
     hard: { n: 'Difficile', lv: 5, mult: 0.92, rew: 2.5, color: '#ff9b3d', prev: 'normal' },
     hell: { n: 'Enfer', lv: 12, mult: 1, rew: 5, color: '#ff3d5a', prev: 'hard' },
-    // Défi : ouvert quand la campagne Enfer est terminée ; adversaires du mode Difficile, mais équipe limitée
+    // Défi : ouvert quand la campagne Enfer est terminée ; équipes de la campagne (+5 niveaux), mais équipe limitée
     // à des Pokémon Normaux, Rares et au plus 3 Épiques. Chaque chapitre terminé : 1 Master Ball et 2 Hyper Balls.
     defi: { n: 'Challenge Pokémaniac', short: 'Pokémaniac', lv: 5, mult: 1.2, rew: 2.5, color: '#ff4a5a', prev: 'hell', rule: true },
   };
@@ -2895,19 +2896,29 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   // Défi : ×1,2 comme en Difficile jusqu'au chapitre 7, puis allégé chapitre après chapitre (jusqu'à ×0,65) car
   // les derniers chapitres opposent des Légendaires et Mythiques à une équipe sans Légendaires (réglé par simulation).
-  // Enfer : pics isolés mesurés avec plusieurs équipes de 6 Légendaires niveau max (runes Mythiques +15), adoucis.
-  const HELL_EASE = globalThis.NO_HELL_EASE ? {} : globalThis.HELL_EASE || { '9-8': 0.97, '11-1': 0.85, '11-2': 0.9, '11-4': 0.8, '11-8': 0.9, '10-x': 0.96, '11-x': 0.94 };
   // Aplanissement : une étape dont la puissance adverse dépasse nettement celle de ses voisines est ramenée vers la
   // courbe (tools/arena-flat.js). Les pics venaient du lissage, qui mélange des équipes de 4, 5 et 6 adversaires.
   const STAGE_FLAT = globalThis.NO_FLAT ? null : [1,1,0.988,0.993,0.929,1,1,1,0.881,1,1,0.956,0.87,0.821,1,1,0.893,0.842,0.945,1,1,1,0.993,0.99,1,1,1,0.991,0.874,1,1,1,0.645,0.823,1,0.935,0.822,1,0.791,1,1,0.837,0.648,1,1,0.682,0.872,1,0.838,1,1,1,0.804,0.876,1,0.877,0.976,1,0.742,1,1,0.79,0.714,1,0.977,0.995,0.885,1,0.851,1,1,0.81,0.73,1,1,0.803,1,1,0.803,1,1,0.995,0.817,1,0.832,0.874,1,0.953,0.615,1,1,0.823,0.822,1,0.863,0.822,1,1,0.693,1,1,0.865,0.909,0.952,1,1,0.983,0.91,0.99,1,1,0.779,0.793,1,0.926,0.965,1,0.969,0.88,1];
   // Retouches manuelles (toutes difficultés), mesurées par parties simulées : 3-1, boss 9-10, 11-7 (Archéduc et Flâmigator), 11-9, 12-5.
   const STAGE_EASE = { '2-0': 0.9, '8-9': 0.88, '10-6': 0.84, '10-8': 0.92, '11-4': 0.92 };
-  const hellEase = (c, i) => (HELL_EASE[c + '-' + i] || 1) * (HELL_EASE[c + '-x'] || 1);
   const diffMult = (d, c) => d === 'defi' ? (c <= 6 ? 1.2 : Math.max(0.6, 1.2 - (c - 6) * 0.125)) : DIFFS[d].mult;
   const campaignDone = d => !!prog(d)[(CHAPTERS.length - 1) + '-' + (CHAPTER_STAGES - 1)];
   // Progression (étoiles par étape) d'une difficulté.
   function prog(d) { if (!d || d === 'normal') return S.campaign; S.campaignD = S.campaignD || {}; return (S.campaignD[d] = S.campaignD[d] || {}); }
-  const diffLevel = (c, i, d) => Math.min(100, stageLevel(c, i) + DIFFS[d || 'normal'].lv);
+  // Difficile et Enfer prolongent le Normal au lieu de repartir de zéro : le Difficile commence juste au-dessus de la
+  // fin du Normal (niveaux 76 → 100), l'Enfer au-dessus de la fin du Difficile (niveau 100, formes ultimes).
+  // La force adverse suit une menace cible (stats effectives, voir threat) qui monte d'étape en étape.
+  const CURVE = Object.assign({ hard: [12, 16.5], hell: [17, 20.5] }, globalThis.CURVE || {}); // menace moyenne (milliers) : chapitre 1 → 12
+  const CHAIN = d => d === 'hard' || d === 'hell';
+  const chainLevel = (c, i, d) => d === 'hell' ? 100 : Math.round(76 + (c * CHAPTER_STAGES + i) * 24 / (CHAPTERS.length * CHAPTER_STAGES - 1));
+  const chainThreat = (c, i, d) => { const [a, b] = CURVE[d], t = (c * CHAPTER_STAGES + i) / (CHAPTERS.length * CHAPTER_STAGES - 1);
+    return 1000 * a * Math.pow(b / a, t) * CHAIN_K[i] * (1 + 0.012 * (i - 4)); };
+  // Correctif par position d'étape : à menace égale, une équipe de 4 ou 5 adversaires (plus concentrés) ou un boss
+  // est plus dur qu'une équipe de 6 ; réglé par simulation pour que chaque étape pèse autant que ses voisines.
+  // Étapes isolées plus dures que leur menace (types adverses très concentrés), mesurées avec plusieurs équipes.
+  const CHAIN_FIX = Object.assign({ 'hell 11-4': 0.82, 'hell 10-9': 0.93, 'hell 9-2': 0.92, 'hard 9-2': 0.95 }, globalThis.CHAIN_FIX || {});
+  const CHAIN_K = [0.86, 1.02, 1.04, 1.04, 1.01, 1.01, 0.97, 0.96, 0.91, 0.8];
+  const diffLevel = (c, i, d) => CHAIN(d) ? chainLevel(c, i, d) : Math.min(100, stageLevel(c, i) + DIFFS[d || 'normal'].lv);
   // En Difficile et en Enfer, le réglage est lissé (moyenne des étapes voisines) pour que le multiplicateur
   // de difficulté n'amplifie pas les pics d'une étape isolée.
   function smoothFactor(c, i) {
@@ -2916,13 +2927,18 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const w = []; for (let j = k - 2; j <= k + 2; j++) if (j >= 0 && j < STAGE_TUNE.length && !isBoss(j)) w.push(Math.log(STAGE_TUNE[j]));
     return Math.exp(w.reduce((a, b) => a + b, 0) / w.length) * lateBoost(k);
   }
-  // Normale ×0,82 · Difficile ×0,92 (+5 niv.) · Enfer ×1 (+12 niv., formes ultimes), réglage lissé (sans pics) : l'Enfer se termine avec
-  // 6 Légendaires niveau max et des runes Légendaires/Mythiques +15.
+  // Normale ×0,82, réglage lissé (sans pics) ; Difficile et Enfer suivent la courbe enchaînée (CURVE) : l'Enfer se
+  // termine avec 6 Légendaires niveau max et des runes Légendaires/Mythiques +15.
   function campaignStage(c, i, d) {
     d = d || 'normal';
     const r = stageRoster(c, i), lv = diffLevel(c, i, d), boss = i === CHAPTER_STAGES - 1, P = prog(d);
+    if (CHAIN(d)) { // force calée sur la menace cible
+      const mk = m => enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: m, ultimate: d === 'hell' });
+      const m = chainThreat(c, i, d) / threat(mk(1)) * (CHAIN_FIX[d + ' ' + c + '-' + i] || 1);
+      return { kind: 'campaign', c, i, d, lv, region: CHAPTERS[c].n, biome: CHAPTERS[c].biome, boss, enemies: mk(m), first: !P[c + '-' + i], reward: campaignReward(c, i, !P[c + '-' + i], d) };
+    }
     return { kind: 'campaign', c, i, d, lv, region: CHAPTERS[c].n, biome: CHAPTERS[c].biome, boss,
-      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: smoothFactor(c, i) * diffMult(d, c) * (STAGE_FLAT && STAGE_FLAT.length ? STAGE_FLAT[c * CHAPTER_STAGES + i] : 1) * (STAGE_EASE[c + '-' + i] || 1) * (d === 'hell' ? hellEase(c, i) : 1), ultimate: d === 'hell' }),
+      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: smoothFactor(c, i) * diffMult(d, c) * (STAGE_FLAT && STAGE_FLAT.length ? STAGE_FLAT[c * CHAPTER_STAGES + i] : 1) * (STAGE_EASE[c + '-' + i] || 1), ultimate: d === 'hell' }),
       first: !P[c + '-' + i], reward: campaignReward(c, i, !P[c + '-' + i], d) };
   }
   function campaignReward(c, i, first, d) {
@@ -2939,8 +2955,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     d = d || 'normal';
     const P = prog(d);
     if (d === 'defi') return campaignDone('hell') && ((c === 0 && i === 0) || !!P[i === 0 ? (c - 1) + '-' + (CHAPTER_STAGES - 1) : c + '-' + (i - 1)]);
-    if (d !== 'normal' && !prog(DIFFS[d].prev)[c + '-' + (CHAPTER_STAGES - 1)]) return false;
-    return (c === 0 && i === 0) || (i === 0 && d !== 'normal') || !!P[i === 0 ? (c - 1) + '-' + (CHAPTER_STAGES - 1) : c + '-' + (i - 1)];
+    // Difficile et Enfer prolongent la difficulté précédente : ils s'ouvrent quand celle-ci est terminée, puis se suivent étape par étape.
+    if (d !== 'normal' && !campaignDone(DIFFS[d].prev)) return false;
+    return (c === 0 && i === 0) || !!P[i === 0 ? (c - 1) + '-' + (CHAPTER_STAGES - 1) : c + '-' + (i - 1)];
   }
   const diffOpen = d => d === 'normal' || stageUnlocked(0, 0, d);
 
@@ -3270,7 +3287,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
-    campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
+    CHAIN_K, CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
@@ -5518,9 +5535,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="mh-rew"><span>Chaque chapitre vaincu :</span><b>${ballHtml('master', 'tiny')} ×1</b><b>${ballHtml('hyper', 'tiny')} ×2</b></div>
         <div class="mh-prog"><div><i style="width:${chDone / G.CHAPTERS.length * 100}%"></i></div><span>${chDone} / ${G.CHAPTERS.length} chapitres · ${chDone} Master Ball${chDone > 1 ? 's' : ''} et ${chDone * 2} Hyper Balls gagnées</span></div>
         ${G.diffOpen('defi') ? '' : '<div class="mh-lock">🔒 Termine toute la campagne en <b>Enfer</b> pour relever le Challenge.</div>'}
-        <p class="mh-d">Les adversaires du mode Difficile (allégés dans les derniers chapitres), chapitre après chapitre, avec une équipe de vrais passionnés : pas de Légendaires, seulement le talent du dresseur.</p></div>` : `
+        <p class="mh-d">Les équipes de la campagne renforcées (allégées dans les derniers chapitres), chapitre après chapitre, avec une équipe de vrais passionnés : pas de Légendaires, seulement le talent du dresseur.</p></div>` : `
       <div class="diff-tabs">${G.DIFF_ORDER.map(k => { const D = G.DIFFS[k], open = G.diffOpen(k); return `<button class="diff ${k === d ? 'on' : ''} ${open ? '' : 'locked'}" data-d="${k}" style="--dc:${D.color}">${open ? '' : '🔒 '}${D.n}</button>`; }).join('')}</div>
-      <p class="muted small diff-note" style="--dc:${D0.color}">${d === 'normal' ? 'La campagne principale.' : `<b>${D0.n}</b> : mêmes régions, adversaires +${D0.lv} niveaux et ×${String(D0.mult).replace('.', ',')} plus forts${d === 'hell' ? ', en formes ultimes dès le niveau 80' : ''}. Récompenses ×${String(D0.rew).replace('.', ',')}, bonbons L et une rune ${d === 'hell' ? 'Légendaire (Mythique au boss)' : 'Épique (Légendaire au boss)'} à chaque première victoire. Chaque chapitre s'ouvre quand son boss est vaincu en ${G.DIFFS[D0.prev].n}.`}</p>`}
+      <p class="muted small diff-note" style="--dc:${D0.color}">${d === 'normal' ? 'La campagne principale.' : `<b>${D0.n}</b> : la suite de la ${G.DIFFS[D0.prev].n}, dans les mêmes régions : ${d === 'hell' ? 'adversaires niveau 100 en formes ultimes, de plus en plus forts' : 'adversaires des niveaux 76 à 100, dès le départ un cran au-dessus de la fin de la Normale'}. Récompenses ×${String(D0.rew).replace('.', ',')}, bonbons L et une rune ${d === 'hell' ? 'Légendaire (Mythique au boss)' : 'Épique (Légendaire au boss)'} à chaque première victoire. S'ouvre quand la ${G.DIFFS[D0.prev].n} est terminée.`}</p>`}
       <div class="chapters">${G.CHAPTERS.map(({ n: r, biome, types }, c) => {
       const unlocked = G.stageUnlocked(c, 0, d);
       const stars = Array.from({ length: G.CHAPTER_STAGES }, (_, i) => P[c + '-' + i] || 0);
@@ -5531,7 +5548,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     }).join('')}</div>
       <div class="auto-camp"><button class="btn primary" data-autoall ${maniac && !G.diffOpen('defi') ? 'disabled' : ''}>▶ Campagne auto</button><span class="muted small">Reprend à ta prochaine étape (${D0.n}) et enchaîne les combats automatiquement jusqu'à une défaite.</span></div></div>`;
     bindBack();
-    app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { if (!G.diffOpen(b.dataset.d)) return toast(`${G.DIFFS[b.dataset.d].n} : vaincs d'abord le boss du chapitre 1 (${G.CHAPTERS[0].n}) en ${G.DIFFS[G.DIFFS[b.dataset.d].prev].n}.`); campaignScreen(b.dataset.d); });
+    app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { if (!G.diffOpen(b.dataset.d)) return toast(`🔒 ${G.DIFFS[b.dataset.d].n} : termine d'abord toute la campagne en ${G.DIFFS[G.DIFFS[b.dataset.d].prev].n} (${G.CHAPTERS[G.CHAPTERS.length - 1].n}).`); campaignScreen(b.dataset.d); });
     app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => chapterScreen(+b.dataset.c, d));
     // Aperçu du biome de chaque chapitre (calculé une carte à la fois pour ne pas figer l'écran).
     if (window.ArenaBiomes) { const cards = [...app.querySelectorAll('.bio-card')]; const next = () => { const b = cards.shift(); if (!b || !b.isConnected) return; const u = ArenaBiomes.thumb(b.dataset.bio, 360, 150); if (u) b.style.setProperty('--thumb', `url(${u})`); b.classList.add('has-thumb'); requestAnimationFrame(next); }; requestAnimationFrame(next); }
@@ -5943,7 +5960,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
       ${sec('Expérience', '<p>Les combats donnent de l’expérience à l’équipe. Les bonbons S, M, L (Grotte Gourmande) en donnent beaucoup, contre quelques Pokédollars.</p>')}
       ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Amélioration de +0 à +${G.RUNE_MAX}. Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
-      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : les mêmes chapitres, adversaires de +5 / +12 niveaux (×0,92 / ×1 ; l’Enfer se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15) (formes ultimes en Enfer), récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Un chapitre s’ouvre quand son boss est vaincu dans la difficulté précédente.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
+      ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : la suite de la campagne dans les mêmes chapitres, sans retour en arrière de difficulté. Le Difficile (niveaux 76 à 100) commence un cran au-dessus de la fin de la Normale, l’Enfer (niveau 100, formes ultimes) au-dessus de la fin du Difficile ; il se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15. Récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Chaque mode s’ouvre quand le précédent est terminé.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
       ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b>, le Pokémon le plus rare de la semaine au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au 6e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
     </div>`;
     bindBack(settingsScreen);
