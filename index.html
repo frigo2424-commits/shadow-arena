@@ -1170,6 +1170,12 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .evp-stats td:last-child, .evp-facts em { text-align: right; } .up { color: #5ee8a0; font-weight: 800; } .down { color: #ff7a8a; font-weight: 800; }
 .evp-bonus { margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: rgba(255,201,74,.12); border: 1px solid rgba(255,201,74,.4); font-size: 12.5px; font-weight: 700; color: #ffe08a; }
 .evp-why { margin: 6px 0; font-size: 12.5px; font-weight: 700; color: #ffb0b8; }
+/* Cible prioritaire et ligne protégée */
+.unit.u3d.focus::after { content: '🎯'; position: absolute; left: 50%; top: -14%; translate: -50% 0; font-size: calc(var(--fs, 10px) * 2.2); z-index: 5; filter: drop-shadow(0 0 6px #ff3d5a); animation: basepulse .9s ease-in-out infinite; }
+.unit.u3d.focus .u-base { box-shadow: 0 0 0 3px #ff3d5a, 0 0 18px #ff3d5a !important; }
+.unit.u3d.foe.guarded .u-base { box-shadow: 0 0 0 2px rgba(120,200,255,.8), 0 0 14px rgba(120,200,255,.6); }
+.unit.u3d.foe.guarded .u-info b::before { content: '🛡 '; }
+.unit.u3d.foe.guarded:not(.target) { opacity: .92; }
 
 </style>
 <div id="app"></div>
@@ -1916,7 +1922,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const ROWS = ['front', 'mid', 'back'];
   const ROW_FR = { front: 'Avant', mid: 'Milieu', back: 'Arrière' };
   const DEFAULT_ROW = { tank: 'front', dps: 'mid', ctrl: 'mid', heal: 'back', sup: 'back' };
-  const COVER = { front: 1, mid: 0.88, back: 0.75 };
+  // Lignes : l'Arrière est hors d'atteinte des attaques ciblées tant qu'un allié tient la ligne Avant (sauf
+  // infiltration ou provocation) ; Milieu et Arrière couverts subissent moins de dégâts, y compris des attaques de zone.
+  const COVER = { front: 1, mid: 0.8, back: 0.65 }, AOE_FALL = { front: 1, mid: 0.9, back: 0.8 };
   const covered = (b, t) => t.row !== 'front' && b.units.some(x => x.alive && x.side === t.side && ROWS.indexOf(x.row) < ROWS.indexOf(t.row));
 
   // Combattant prêt pour le combat : stats calculées (niveau, forme, runes) par ArenaGame.statsOf.
@@ -2015,6 +2023,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const ready = u => u.skills.map((s, i) => ({ s, i })).filter(x => u.cd[x.i] <= 0);
 
   // Provocation : une attaque ciblée doit viser le tank qui provoque, tant qu'il est debout.
+  const guarded = (b, t) => t.row === 'back' && b.units.some(x => x.alive && x.side === t.side && x.row === 'front');
+  const canTarget = (b, u, t) => t.alive && (u.passives.infiltrate || !guarded(b, t));
+  // Cibles possibles d'une attaque ciblée (provocation d'abord, puis les adversaires atteignables).
+  function targetsFor(b, u) { const f = taunter(b, u); if (f) return [f]; const e = foes(b, u), ok = e.filter(t => canTarget(b, u, t)); return ok.length ? ok : e; }
   const taunter = (b, u) => u.taunt && b.units.find(x => x.uid === u.taunt.by && x.alive) || null;
 
   // IA selon le rôle : soins quand l'équipe souffre, provocation, bonus/malus, contrôle, puis la meilleure attaque.
@@ -2038,13 +2050,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       || use(s => s.slot === 1 && s.target === 'self' && !u.buffs.length)
       || use(s => s.slot === 1 && s.target === 'enemy' && s.c === 1 && !s.ail)
       || opts.find(x => x.s.slot === 0) || opts[0];
-    const t = taunter(b, u);
+    const t = taunter(b, u), reach = targetsFor(b, u), fo = u.side === 'A' && b.focus && b.units.find(x => x.uid === b.focus);
     let best;
     if (t) best = t;
-    else if (pick.s.c === 1 && pick.s.ail) best = enemies.filter(e => canAil(e, pick.s.ail)).sort((x, y) => Math.max(eff(y, 'atk'), eff(y, 'spa')) - Math.max(eff(x, 'atk'), eff(x, 'spa')))[0] || enemies[0];
+    else if (fo && fo.alive && canTarget(b, u, fo) && ['enemy', 'all'].includes(pick.s.target)) best = fo; // cible prioritaire choisie par le joueur
+    else if (pick.s.c === 1 && pick.s.ail) best = reach.filter(e => canAil(e, pick.s.ail)).sort((x, y) => Math.max(eff(y, 'atk'), eff(y, 'spa')) - Math.max(eff(x, 'atk'), eff(x, 'spa')))[0] || enemies[0];
     else {
       const score = e => typeFactor(pick.s.t, e.types) * (covered(b, e) ? (e.row === 'back' ? 0.45 : 0.7) : 1) * (e.role === 'heal' ? 1.15 : 1) * (1 + (1 - e.hp / e.maxHp) * 0.6);
-      best = enemies.slice().sort((x, y) => score(y) - score(x))[0];
+      best = reach.slice().sort((x, y) => score(y) - score(x))[0];
     }
     return { i: pick.i, target: best };
   }
@@ -2088,7 +2101,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (t.passives.multitype && tf > 1) dmg *= 1 - t.passives.multitype / 100;
     if (t.teamDr) dmg *= 1 - Math.min(40, t.teamDr) / 100;
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
-    if (single && b && covered(b, t) && !u.passives.infiltrate) dmg *= COVER[t.row];
+    if (b && covered(b, t) && !u.passives.infiltrate) dmg *= single ? COVER[t.row] : AOE_FALL[t.row];
     if (b && b.turn > ENRAGE) dmg *= 1 + (b.turn - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
     // Migraine (Psykokwak, Akwakwak) : l'attaque de base peut déchaîner un pouvoir psychique qui met K.O. sur le coup.
     if (P.migraine && sk.slot === 0 && rand() * 100 < P.migraine) return { dmg: t.boss ? Math.max(Math.round(dmg), Math.round(t.maxHp * 0.25)) : t.hp + (t.shield || 0), tf, crit, migraine: true };
@@ -2131,7 +2144,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     u.cd[choice.i] = sk.cd;
     const enemies = foes(b, u), allies = alive(b, u.side);
     const forced = taunter(b, u);
-    const single = forced || (choice.target && choice.target.alive && choice.target.side !== u.side ? choice.target : enemies[0]);
+    const single = forced || (choice.target && choice.target.alive && choice.target.side !== u.side && canTarget(b, u, choice.target) ? choice.target : targetsFor(b, u)[0]);
     const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * (u.role === 'heal' ? 1.2 : 1));
     const heal = (t, pct) => {
       const h = Math.min(t.maxHp - t.hp, healAmt(t, pct));
@@ -2315,7 +2328,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Combat entièrement automatique (simulation, tests).
   function autoRun(b) { while (!b.over) { const u = nextActor(b); act(b, u, aiChoose(b, u)); } return b.winner; }
 
-  root.ArenaBattle = { unit, create, nextActor, preview, act, aiChoose, ready, alive, foes, autoRun, typeFactor, eff, taunter, covered, ROWS, ROW_FR, DEFAULT_ROW, COVER, HP_MULT, STAT_FR };
+  root.ArenaBattle = { unit, create, nextActor, preview, act, aiChoose, ready, alive, foes, autoRun, typeFactor, eff, taunter, covered, guarded, canTarget, targetsFor, ROWS, ROW_FR, DEFAULT_ROW, COVER, HP_MULT, STAT_FR };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -4893,7 +4906,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // ---------- Équipe ----------
   // Équipe : tableau de formation en 3 lignes (Avant, Milieu, Arrière). Chaque carte se déplace d'une ligne à
   // l'autre avec ◀ ▶, se retire avec ✕ et ouvre sa fiche au toucher ; les places libres s'ajoutent en bas.
-  const LANE_INFO = { front: ['En première ligne', 'Tanks, gros PV'], mid: ['Couvert : −12 % de dégâts', 'Attaquants, contrôle'], back: ['Couvert : −25 % de dégâts', 'Soigneurs, soutiens'] };
+  const LANE_INFO = { front: ['En première ligne', 'Tanks, gros PV : ils protègent l’Arrière'], mid: ['Couvert : −20 % de dégâts', 'Attaquants, contrôle'], back: ['Intouchable tant que l’Avant tient', 'Soigneurs, soutiens (−35 % ensuite)'] };
   function teamScreen(after) {
     const s = S(), team = teamMons(), free = G.TEAM_SIZE - team.length;
     const roles = {}; team.forEach(m => { const r = A.roleOf(m.sid); roles[r] = (roles[r] || 0) + 1; });
@@ -5056,6 +5069,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       for (const u of b.units) {
         const e = el(u); if (!e) continue;
         e.classList.toggle('ko', !u.alive);
+        e.classList.toggle('focus', b.focus === u.uid && u.alive);
+        e.classList.toggle('guarded', u.alive && B.guarded(b, u));
         e.querySelector('.hp i').style.width = Math.max(0, u.hp / u.maxHp * 100) + '%';
         e.querySelector('.hp i').className = u.hp / u.maxHp < 0.25 ? 'low' : u.hp / u.maxHp < 0.5 ? 'mid' : '';
         e.querySelector('.ap i').style.width = Math.min(100, u.ap / 10) + '%';
@@ -5161,7 +5176,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         el(u).classList.add('turn');
         let sel = u.skills[0].target === 'enemy' ? 0 : null; // compétence I présélectionnée : toucher un adversaire l'utilise
         const forced = B.taunter(b, u);
-        const enemies = () => forced ? [forced] : B.foes(b, u);
+        const enemies = () => B.targetsFor(b, u);
         if (forced) $('.b-msg').textContent = `À toi : ${u.name} — provoqué par ${forced.name} !`;
         const renderSkills = () => {
           $('.skills').innerHTML = u.skills.map((sk, i) => `<button class="skill-btn ${sel === i ? 'sel' : ''}" data-i="${i}" ${u.cd[i] > 0 ? 'disabled' : ''} style="--tc:${typeColor(sk.t)}">
@@ -5188,16 +5203,24 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
             };
           });
         };
-        const done = c => { app.querySelectorAll('.unit').forEach(e => e.classList.remove('target', 'turn')); app.querySelectorAll('.eff-tag').forEach(e => e.remove()); $('.skills').innerHTML = ''; resolve(c); };
-        app.querySelectorAll('.unit.foe').forEach(e => e.onclick = () => {
-          const t = byUid[e.dataset.u]; if (!t || !t.alive || sel == null) return;
-          if (forced && t !== forced) { $('.b-msg').textContent = `Provoqué : il faut viser ${forced.name} !`; return; }
-          done({ i: sel, target: t });
-        });
+        const done = c => { b._pick = null; app.querySelectorAll('.unit').forEach(e => e.classList.remove('target', 'turn')); app.querySelectorAll('.eff-tag').forEach(e => e.remove()); $('.skills').innerHTML = ''; resolve(c); };
+        b._pick = t => {
+          if (!t || !t.alive || sel == null) return false;
+          if (forced && t !== forced) { $('.b-msg').textContent = `Provoqué : il faut viser ${forced.name} !`; return true; }
+          if (!enemies().includes(t)) { $('.b-msg').textContent = `${t.name} est protégé par la ligne Avant : vise d’abord l’avant !`; return true; }
+          b.focus = t.uid; done({ i: sel, target: t }); return true;
+        };
         renderSkills();
         b._autoHook = () => done(B.aiChoose(b, u));
       });
     }
+    // Toucher un adversaire hors du choix d'une attaque : le désigner comme cible prioritaire 🎯 (utilisée aussi en Auto).
+    app.querySelectorAll('.unit.foe').forEach(e => e.onclick = () => {
+      const t = byUid[e.dataset.u]; if (!t || !t.alive) return;
+      if (b._pick && b._pick(t)) return;
+      b.focus = b.focus === t.uid ? null : t.uid; render();
+      toast(b.focus ? `🎯 Cible prioritaire : ${t.name}${B.guarded(b, t) ? ' (protégée tant que la ligne Avant tient)' : ''}` : 'Cible prioritaire retirée');
+    });
     function skillTip(sk) { modal(skillHtml(sk) + '<div class="row end"><button class="btn" data-close>OK</button></div>'); }
     const syncAuto = () => { $('[data-auto]').textContent = auto ? 'Auto ✓' : 'Auto'; const ac = $('[data-autocamp]'); if (ac) { ac.textContent = autoCamp ? 'Camp. auto ✓' : 'Camp. auto'; ac.classList.toggle('on', autoCamp); } };
     $('[data-auto]').onclick = () => { auto = !auto; if (!auto) autoCamp = false; syncAuto(); try { localStorage.setItem('psa_auto', auto ? '1' : '0'); } catch (x) { /* ignore */ } if (auto && b._autoHook) b._autoHook(); };
@@ -5751,7 +5774,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Combats', '<p>6 contre 6, au tour par tour. Chaque Pokémon remplit sa jauge d’action selon sa <b>Vitesse</b> (frise en haut : ordre des prochains tours). À son tour, il utilise une de ses <b>3 compétences</b> : I sans recharge, II et III (ultime) avec recharge. Touche une compétence, puis un adversaire. Appui long sur une compétence : sa description. Mode Auto et vitesse ×1/×2/×3.</p><p>Types, STAB (×1,5), coups critiques, statuts (brûlure, poison, paralysie, sommeil, gel), bonus et malus de stats, soins.</p>')}
       ${sec('Rôles et équipe de 6', `<p>Chaque Pokémon a un rôle (icône sur sa carte), avec des compétences II et III qui lui sont propres :</p><ul>${A.ROLE_ORDER.map(r => `<li><b style="color:${A.ROLES[r].color}">${A.ROLES[r].i} ${A.ROLES[r].n}</b> : ${A.ROLES[r].d}</li>`).join('')}</ul><p>Une <b>Provocation</b> oblige les attaques ciblées à viser le tank. Les soins purifient statuts et malus. Le contrôle repousse la jauge d’action adverse, le soutien accélère la tienne. En fin de jeu, il faut une vraie équipe : idéalement un tank, un soigneur, deux attaquants et deux Pokémon de contrôle ou de soutien. « Meilleure équipe auto » suit ce modèle.</p>`)}
       ${sec('Types', `<p>Chaque Pokémon a 1 ou 2 types, et chaque compétence un type. <b>Super efficace</b> : ×2 (×4 si les deux types sont faibles) ; <b>peu efficace</b> : ×½ ; <b>aucun effet</b> : ×0. Une compétence du même type que son lanceur fait ×1,5. En combat, choisis une compétence : l'efficacité s'affiche sur chaque adversaire. Les fiches des Pokémon montrent faiblesses, résistances et immunités.</p><div class="row"><button class="btn small" data-chart>Ouvrir la table des types</button></div>`)}
-      ${sec('Terrain et formation', '<p>Les deux équipes se font face sur le terrain, chacune sur 3 lignes : <b>Avant</b>, <b>Milieu</b>, <b>Arrière</b>. Tant qu’un allié plus avancé est debout, les lignes Milieu et Arrière sont couvertes : −12 % et −25 % de dégâts des attaques ciblées (pas des attaques de zone), et l’adversaire les vise moins souvent. Change la ligne de chaque Pokémon dans l’écran Équipe. Les adversaires se placent selon leur rôle.</p><p><b>Campagne auto</b> : depuis la Campagne, un chapitre ou un combat de campagne, enchaîne automatiquement les étapes suivantes jusqu’à une défaite.</p>')}
+      ${sec('Terrain et formation', '<p>Les deux équipes se font face sur le terrain, chacune sur 3 lignes : <b>Avant</b>, <b>Milieu</b>, <b>Arrière</b>. Tant qu’un allié tient la ligne <b>Avant</b>, la ligne <b>Arrière</b> est hors d’atteinte des attaques ciblées (sauf provocation ou infiltration). Les lignes couvertes subissent aussi moins de dégâts : Milieu −20 %, Arrière −35 % (attaques de zone : −10 % et −20 %). Le tank devant protège donc soigneurs et soutiens. En combat, touche un adversaire pour en faire ta <b>cible prioritaire 🎯</b> : tes Pokémon l’attaquent en priorité, même en mode Auto. Change la ligne de chaque Pokémon dans l’écran Équipe. Les adversaires se placent selon leur rôle.</p><p><b>Campagne auto</b> : depuis la Campagne, un chapitre ou un combat de campagne, enchaîne automatiquement les étapes suivantes jusqu’à une défaite.</p>')}
       ${sec('Tour Infinie', `<p>Mode de fin de jeu, ouvert après le boss de Paldea en campagne Normale : 100 étages contre des équipes de 6 Légendaires, Fabuleux et Mythiques, de plus en plus fortes. Chaque dizaine d’étages a son thème (${G.TOWER_THEMES.map(t => t.n).join(', ')}) avec des capacités spéciales à contrer : il faut adapter son équipe aux types, aux forces et aux pièges adverses. Tous les 10 étages, un boss ; première victoire : une Master Ball (et une rune Mythique). Arceus attend au sommet.</p>`)}
       ${sec('Raretés', `<p>${A.RARITY_ORDER.map(k => `<b style="color:${rar(k).color}">${rar(k).n}</b> (${rar(k).rate} %)`).join(' · ')}.</p><p>Normaux : Rattata, Chenipan, Mélo, Toudoudou, Roucool… · Rares : Pokémon sans évolution peu réputés · Épiques : Élektek, Magmar, Ronflex, Lokhlass, Scarhino… · Légendaires : starters, pseudo-légendaires, Pokémon « god tier » (Ectoplasma, Léviator, Pyrax…) · Fabuleux : les Pokémon fabuleux (Mew, Celebi, Jirachi, Arceus, Darkrai, Victini…) · Mythiques : les vrais légendaires.</p>`)}
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
