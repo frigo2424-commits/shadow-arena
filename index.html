@@ -1157,6 +1157,19 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .sub-hero .sub-cap, .sub-hero .sub-cap.r, .sub-hero .sub-cap.l { position: relative; left: auto; right: auto; bottom: auto; align-self: center; margin: 0 14px; text-align: left; transform: rotate(-1.5deg); }
 @media (orientation: landscape) and (max-height: 560px) { .sub-hero { height: 96px; } .sub-cap small { display: block; } }
 .skill.passive.hero { border-left-color: #ff6a3a; background: linear-gradient(90deg, rgba(255,106,58,.18), var(--panel)); } .skill.passive.hero b { color: #ffb070; }
+/* Aperçu d'évolution */
+.evo.locked { opacity: .6; filter: saturate(.6); } .evo.locked::after { content: '👁 Aperçu'; display: block; font-size: 10.5px; color: var(--cyan); margin-top: 2px; }
+.evo:not(.locked)::after { content: '👁 Aperçu et évolution'; display: block; font-size: 10.5px; color: var(--gold); margin-top: 2px; }
+.evp h3 { margin: 0 0 8px; } .evp-head { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.evp-head > div { display: grid; justify-items: center; gap: 2px; text-align: center; } .evp-head .spr { width: 96px; height: 96px; } .evp-head b { font-size: 14px; } .evp-head span { font-size: 11.5px; font-weight: 800; }
+.evp-head i { font-style: normal; font-size: 26px; color: var(--gold); }
+.evp-gmax .evp-head > div:last-child .spr { filter: drop-shadow(0 0 12px #ff3d6a); } .evp-mega .evp-head > div:last-child .spr { filter: drop-shadow(0 0 12px #c07bff); }
+.evp-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; margin: 8px 0; font-size: 12.5px; } .evp-facts em { font-style: normal; font-weight: 800; }
+.evp-stats { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+.evp-stats td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.06); } .evp-stats td:first-child { color: var(--muted); } .evp-stats td:nth-child(3) { color: var(--muted); text-align: center; }
+.evp-stats td:last-child, .evp-facts em { text-align: right; } .up { color: #5ee8a0; font-weight: 800; } .down { color: #ff7a8a; font-weight: 800; }
+.evp-bonus { margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: rgba(255,201,74,.12); border: 1px solid rgba(255,201,74,.4); font-size: 12.5px; font-weight: 700; color: #ffe08a; }
+.evp-why { margin: 6px 0; font-size: 12.5px; font-weight: 700; color: #ffb0b8; }
 
 </style>
 <div id="app"></div>
@@ -4659,10 +4672,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="row"><button class="btn small" data-feedmax ${atCap ? 'disabled' : ''}>Utiliser jusqu'au niveau max</button><span class="muted small">Coût : 1 ₽ pour 4 points d'exp.</span></div>
         <div class="row"><button class="btn small ghost" data-extract ${m.lv > 5 ? '' : 'disabled'}>Extraire l’expérience</button><span class="muted small">Redescend au niveau 5 et rend 80 % de son expérience en bonbons.</span></div></section>
       ${evos.length && !m.form ? `<section><h3>Évolution · palier ${'★'.repeat(A.starsOf(m) + 1)}</h3><p class="muted small">Atteins le niveau ${cap}, puis fais évoluer pour débloquer 10 niveaux de plus.</p>
-        <div class="evo-row">${evos.map(e => `<button class="evo" data-evo="${e}" ${atCap ? '' : 'disabled'}>${speciesImg(e, '', m.shiny)}<b>${esc(sp(e).n)}</b><span>max N.${A.levelCap({ sid: e })}</span><small class="evo-gain">${(b => b ? esc(A.evoBonusText(b)) : '')(A.evoBonuses(e).slice(-1)[0])}</small></button>`).join('')}</div>
+        <div class="evo-row">${evos.map(e => `<button class="evo ${atCap ? '' : 'locked'}" data-evo="${e}">${speciesImg(e, '', m.shiny)}<b>${esc(sp(e).n)}</b><span>max N.${A.levelCap({ sid: e })}</span><small class="evo-gain">${(b => b ? esc(A.evoBonusText(b)) : '')(A.evoBonuses(e).slice(-1)[0])}</small></button>`).join('')}</div>
         <p class="cost">Coût : <b>${ec.crystals}</b> cristaux ${esc(G.TYPE_N(ec.type))} (tu en as ${s.crystals[ec.type] || 0}) · <b>${fmt(ec.gold)}</b> ₽</p></section>` : ''}
       ${ults.length ? `<section><h3>Forme ultime · ★★★★★★ niveau 100</h3><p class="muted small">Dès le niveau ${Math.min(80, cap)}, éveille sa forme ultime. Méga : ${G.ULT_COST.mega.n} Méga-Cristaux · Gigamax : ${G.ULT_COST.gmax.n} Particules Dynamax · ${fmt(G.ULT_COST.mega.gold)} ₽ (Sanctuaire Ultime).</p>
-        <div class="evo-row">${ults.map(f => `<button class="evo ult" data-ult="${f.key}" ${G.canAscend(m) ? "" : "disabled"}>${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
+        <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
       ${evoBonusHtml(m)}
       <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
       <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(st[key])}</b></div>`).join('')}</div><p class="muted small">En combat, les PV sont multipliés par ${B.HP_MULT}.</p></section>
@@ -4685,14 +4698,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     };
     app.querySelector('[data-feedmax]').onclick = () => { const before = m.lv; for (const c of ['L', 'M', 'S']) G.feed(m, c, 999); toast(m.lv > before ? `${monName(m)} : niveau ${before} → ${m.lv}` : 'Pas assez de bonbons ou de Pokédollars.'); re(); };
     app.querySelectorAll('[data-evo]').forEach(b => b.onclick = async () => {
-      const to = +b.dataset.evo; if (!await confirmBox(`Faire évoluer ${esc(monName(m))} en <b>${esc(sp(to).n)}</b> ?`, 'Évoluer')) return;
+      const to = +b.dataset.evo; if (!await evoPreview(m, { sid: to })) return;
       const before = { img: monImg(m), name: monName(m) };
       const r = G.evolve(m, to);
       if (r === true) { await evoAnim(m, before, 'evo'); const nb = A.evoBonuses(m.sid).slice(-1)[0]; if (nb) toast(`Bonus d’évolution : ${A.evoBonusText(nb, A.skillsOf(m.sid))} !`); re(); } else toast(r === 'crystals' ? 'Pas assez de cristaux (Temple Élémentaire).' : r === 'gold' ? 'Pas assez de Pokédollars.' : 'Impossible pour le moment.');
     });
     app.querySelectorAll('[data-ult]').forEach(b => b.onclick = async () => {
       const f = A.ultimatesOf(m.sid).find(x => x.key === b.dataset.ult);
-      if (!await confirmBox(`Éveiller <b>${esc(f.n)}</b> ? Ce choix est définitif.`, 'Éveiller')) return;
+      if (!await evoPreview(m, { form: f.key })) return;
       const before = { img: monImg(m), name: monName(m), rar: A.rarOf(m) };
       const r = G.ascend(m, f.key);
       if (r === true) { await evoAnim(m, before, f.kind); re(); } else toast(r === 'item' ? 'Objets manquants (Sanctuaire Ultime).' : r === 'gold' ? 'Pas assez de Pokédollars.' : 'Impossible pour le moment.');
@@ -4706,6 +4719,29 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       else { if (s.team.length >= G.TEAM_SIZE) return toast(`Équipe complète (${G.TEAM_SIZE}) : retires-en un d’abord.`); s.team.push(m.uid); }
       G.save(); re();
     };
+  }
+  // Aperçu d'une évolution ou d'une forme ultime : stats avant / après (au niveau actuel, runes comprises), niveau max,
+  // rareté, types, bonus d'évolution et passifs gagnés ; on confirme depuis cette fenêtre.
+  function evoPreview(m, to) {
+    const after = Object.assign({}, m, to), ult = !!to.form, f = ult ? A.ultimatesOf(m.sid).find(x => x.key === to.form) : null;
+    const can = ult ? G.canAscend(m) : G.canEvolve(m), cost = ult ? G.ULT_COST[f.kind] : G.evolveCost(m), s = S();
+    const st0 = G.statsOf(m), st1 = G.statsOf(after), p0 = G.powerOf(m), p1 = G.powerOf(after);
+    const row = ([k, l]) => { const d = st1[k] - st0[k]; return `<tr><td>${l}</td><td>${fmt(st0[k])}</td><td>→</td><td><b>${fmt(st1[k])}</b></td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d ? fmt(d) : '='}</td></tr>`; };
+    const r0 = A.rarOf(m), r1 = A.rarOf(after), t0 = monTypes(m), t1 = monTypes(after);
+    const pas0 = A.passivesOfMon(m).map(p => p.n), gained = A.passivesOfMon(after).filter(p => !pas0.includes(p.n) || p.hero);
+    const bonus = ult ? 'Toutes les compétences : +10 % de puissance' : (b => b ? A.evoBonusText(b, A.skillsOf(to.sid)) : '')(A.evoBonuses(to.sid).slice(-1)[0]);
+    const costTxt = ult ? `${cost.n} ${f.kind === 'gmax' ? 'Particules Dynamax' : 'Méga-Cristaux'} (tu en as ${s.items[cost.item] || 0}) · ${fmt(cost.gold)} ₽` : `${cost.crystals} cristaux ${esc(G.TYPE_N(cost.type))} (tu en as ${s.crystals[cost.type] || 0}) · ${fmt(cost.gold)} ₽`;
+    const why = can ? '' : `Atteins d’abord le niveau ${ult ? Math.min(80, A.levelCap(m)) : A.levelCap(m)} (actuellement ${m.lv}).`;
+    return modal(`<div class="evp ${ult ? 'evp-' + f.kind : ''}"><h3>${ult ? (f.kind === 'gmax' ? 'Gigamax' : 'Méga-Évolution') : 'Évolution'} · aperçu</h3>
+      <div class="evp-head"><div>${monImg(m)}<b>${esc(monName(m))}</b><span style="color:${rar(r0).color}">${rar(r0).n}</span></div><i>➜</i><div>${monImg(after)}<b>${esc(monName(after))}</b><span style="color:${rar(r1).color}">${rar(r1).n}${r1 !== r0 ? ' ★' : ''}</span></div></div>
+      <div class="evp-facts"><span>Niveau max <b>${A.levelCap(m)} → ${A.levelCap(after)}</b></span><span>Puissance <b>${fmt(p0)} → ${fmt(p1)}</b> <em class="${p1 >= p0 ? 'up' : 'down'}">${p1 >= p0 ? '+' : ''}${fmt(p1 - p0)}</em></span>${t0.join() !== t1.join() ? `<span>Types ${t0.map(typeBadge).join('')} → ${t1.map(typeBadge).join('')}</span>` : ''}</div>
+      <table class="evp-stats"><tbody>${STAT_LABELS.slice(0, 6).map(row).join('')}</tbody></table>
+      ${bonus ? `<p class="evp-bonus">✦ ${esc(bonus)}</p>` : ''}
+      ${gained.map(p => `<div class="skill passive ${p.hero ? 'hero' : ''}"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}
+      <p class="muted small">Stats au niveau actuel (${m.lv}), runes et bonus compris. Coût : ${costTxt}.${ult ? ' Ce choix est définitif.' : ''}</p>
+      ${why ? `<p class="evp-why">🔒 ${why}</p>` : ''}
+      <div class="row end"><button class="btn ghost" data-close>Fermer</button><button class="btn primary" data-go-evo ${can ? '' : 'disabled'}>${ult ? 'Éveiller' : 'Évoluer'}</button></div></div>`,
+      (bg, close) => { bg.querySelector('[data-go-evo]').onclick = () => close(true); }).then(v => !!v);
   }
   // Cinématique d'évolution (classique, Méga, Gigamax) ; repli sur une simple fenêtre si le module manque.
   function evoAnim(m, before, kind) {
