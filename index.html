@@ -1074,7 +1074,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
   .ch-hero, .dg-fhero { height: 130px; } .maniac-hero { padding: 10px; } .mh-medal { width: 64px; height: 64px; } .mh-medal .icon { width: 58px; height: 58px; }
   .cr-hero { height: 140px; }
   /* combat : terrain à gauche, compétences en colonne à droite */
-  .battle-wrap { grid-template-columns: minmax(0, 1fr) 250px; grid-template-rows: auto minmax(0, 1fr); gap: 6px 8px; padding-top: 4px; }
+  .battle-wrap { grid-template-columns: minmax(0, 1fr) 220px; grid-template-rows: auto minmax(0, 1fr); gap: 6px 8px; padding-top: 4px; }
   .battle-wrap .b-top { grid-column: 1 / -1; }
   .battle-wrap .field3d { min-height: 0; height: 100%; }
   .battle-wrap .b-panel { grid-column: 2; grid-row: 2; align-content: start; overflow-y: auto; }
@@ -1185,6 +1185,12 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
   .cine2 .c2-name b { font-size: 24px; }
   .cine2 .cine-hint { bottom: 6px; font-size: 11px; }
 }
+/* Résultat d'invocation : bouton Continuer toujours visible, cartes plus compactes en paysage */
+.reveal > .row.end { position: sticky; bottom: -16px; margin: 8px -16px -16px; padding: 10px 16px; background: linear-gradient(180deg, transparent, var(--panel) 35%); z-index: 2; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .reveal-grid .rv { padding: 6px 4px; gap: 2px; }
+  .reveal-grid .rv .spr, .reveal-grid .rv img { width: 56px !important; height: 56px !important; }
+}
 
 </style>
 <div id="app"></div>
@@ -1281,7 +1287,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     260: 'tank', 383: 'tank', 791: 'tank', 486: 'tank', 895: 'tank', 992: 'tank', 896: 'tank', 485: 'tank', 787: 'tank', // Laggron, Groudon, Solgaleo, Regigigas, Regidrago, Paume-de-Fer, Blizzeval, Heatran, Tokotoro
     491: 'ctrl', 483: 'ctrl', 646: 'ctrl', 243: 'ctrl', 145: 'ctrl', 792: 'ctrl', 720: 'ctrl', 386: 'ctrl', 905: 'ctrl', 642: 'ctrl', 1015: 'ctrl', // Darkrai, Dialga, Kyurem, Raikou, Électhor, Lunala, Hoopa, Deoxys, Amovénus, Fulguris, Fortusimia
     801: 'sup', 716: 'sup', 785: 'sup', 786: 'sup', 641: 'sup', // Magearna, Xerneas, Tokorico, Tokopiyon, Boréas
-    730: 'heal', 893: 'heal' }; // Oratoria, Zarude
+    730: 'heal', 893: 'heal', // Oratoria, Zarude
+    // Palier Légendaire (starters, pseudo-légendaires) : moins d'attaquants purs, des contrôleurs et des soutiens iconiques.
+    727: 'tank', // Félinferno (Intimidation)
+    655: 'ctrl', 987: 'ctrl', 724: 'ctrl', // Goupelin (illusions psychiques), Flotte-Mèche (frayeur), Archéduc (Tisse Ombre)
+    812: 'sup', 914: 'sup', 637: 'sup', 911: 'sup' }; // Gorythmic (tambour), Palmaval (danse), Pyrax (Papillodanse), Flâmigator (Chant Flamboyant)
   const descendants = id => [id, ...evolutionsOf(id).flatMap(descendants)];
   const roleCache = {};
   function roleOf(sid) {
@@ -1918,7 +1928,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 </script>
 <script>
 // Généré par tools/arena-power.js : corrections de stats par lignée (racine) mesurées par simulation.
-(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,69:0.940,77:0.940,84:0.831,95:1.338,100:0.831,114:1.060,116:0.940,123:0.884,127:0.940,128:0.831,140:0.940,177:0.884,193:0.884,200:0.884,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.831,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,406:0.940,418:0.884,427:0.940,431:0.781,436:1.124,441:0.940,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,527:0.734,529:0.940,532:0.940,539:0.884,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.884,585:0.940,595:0.831,597:1.191,607:0.940,610:0.940,615:0.940,616:0.831,619:0.940,676:0.781,677:0.831,679:1.124,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,757:0.884,766:0.940,777:0.884,778:0.940,796:0.940,803:0.884,805:1.262,837:1.060,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,932:1.060,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.191,967:0.940,973:0.884,974:0.940,978:0.940,986:0.940,988:0.831,989:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
+(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,69:0.940,77:0.940,84:0.831,95:1.338,100:0.831,114:1.060,116:0.884,123:0.884,127:0.940,128:0.831,140:0.940,177:0.884,193:0.884,200:0.884,214:0.940,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.831,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,403:0.940,406:0.940,418:0.884,427:0.940,431:0.781,436:1.124,441:0.940,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,527:0.734,529:0.940,532:0.940,539:0.884,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.831,585:0.940,595:0.831,597:1.191,607:0.884,610:0.884,615:0.940,616:0.831,619:0.940,622:0.940,676:0.781,677:0.831,679:1.124,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,747:1.060,757:0.884,766:0.940,777:0.884,778:0.940,779:0.940,796:0.940,803:0.884,805:1.262,837:1.060,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.191,967:0.940,973:0.884,974:0.940,978:0.940,986:0.940,988:0.831,989:0.940,993:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
@@ -2885,6 +2895,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   // Défi : ×1,2 comme en Difficile jusqu'au chapitre 7, puis allégé chapitre après chapitre (jusqu'à ×0,65) car
   // les derniers chapitres opposent des Légendaires et Mythiques à une équipe sans Légendaires (réglé par simulation).
+  // Enfer : pics isolés mesurés avec plusieurs équipes de 6 Légendaires niveau max (runes Mythiques +15), adoucis.
+  const HELL_EASE = globalThis.NO_HELL_EASE ? {} : globalThis.HELL_EASE || { '9-8': 0.97, '11-1': 0.85, '11-2': 0.9, '11-4': 0.8, '11-8': 0.9, '10-x': 0.96, '11-x': 0.94 };
+  // Aplanissement : une étape dont la puissance adverse dépasse nettement celle de ses voisines est ramenée vers la
+  // courbe (tools/arena-flat.js). Les pics venaient du lissage, qui mélange des équipes de 4, 5 et 6 adversaires.
+  const STAGE_FLAT = globalThis.NO_FLAT ? null : [1,1,0.988,0.993,0.929,1,1,1,0.881,1,1,0.956,0.87,0.821,1,1,0.893,0.842,0.945,1,1,1,0.993,0.99,1,1,1,0.991,0.874,1,1,1,0.645,0.823,1,0.935,0.822,1,0.791,1,1,0.837,0.648,1,1,0.682,0.872,1,0.838,1,1,1,0.804,0.876,1,0.877,0.976,1,0.742,1,1,0.79,0.714,1,0.977,0.995,0.885,1,0.851,1,1,0.81,0.73,1,1,0.803,1,1,0.803,1,1,0.995,0.817,1,0.832,0.874,1,0.953,0.615,1,1,0.823,0.822,1,0.863,0.822,1,1,0.693,1,1,0.865,0.909,0.952,1,1,0.983,0.91,0.99,1,1,0.779,0.793,1,0.926,0.965,1,0.969,0.88,1];
+  // Retouches manuelles (toutes difficultés), mesurées par parties simulées : 3-1, boss 9-10, 11-7 (Archéduc et Flâmigator), 11-9, 12-5.
+  const STAGE_EASE = { '2-0': 0.9, '8-9': 0.88, '10-6': 0.84, '10-8': 0.92, '11-4': 0.92 };
+  const hellEase = (c, i) => (HELL_EASE[c + '-' + i] || 1) * (HELL_EASE[c + '-x'] || 1);
   const diffMult = (d, c) => d === 'defi' ? (c <= 6 ? 1.2 : Math.max(0.6, 1.2 - (c - 6) * 0.125)) : DIFFS[d].mult;
   const campaignDone = d => !!prog(d)[(CHAPTERS.length - 1) + '-' + (CHAPTER_STAGES - 1)];
   // Progression (étoiles par étape) d'une difficulté.
@@ -2904,7 +2922,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     d = d || 'normal';
     const r = stageRoster(c, i), lv = diffLevel(c, i, d), boss = i === CHAPTER_STAGES - 1, P = prog(d);
     return { kind: 'campaign', c, i, d, lv, region: CHAPTERS[c].n, biome: CHAPTERS[c].biome, boss,
-      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: smoothFactor(c, i) * diffMult(d, c), ultimate: d === 'hell' }),
+      enemies: enemyTeam(r.team, lv, { boss, rng: seeded(r.seed), mult: smoothFactor(c, i) * diffMult(d, c) * (STAGE_FLAT && STAGE_FLAT.length ? STAGE_FLAT[c * CHAPTER_STAGES + i] : 1) * (STAGE_EASE[c + '-' + i] || 1) * (d === 'hell' ? hellEase(c, i) : 1), ultimate: d === 'hell' }),
       first: !P[c + '-' + i], reward: campaignReward(c, i, !P[c + '-' + i], d) };
   }
   function campaignReward(c, i, first, d) {
@@ -4432,8 +4450,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const confirmBox = (text, yes, no) => modal(`<p>${text}</p><div class="row end"><button class="btn ghost" data-close>${no || 'Annuler'}</button><button class="btn primary" data-yes>${yes || 'Confirmer'}</button></div>`,
     (bg, close) => bg.querySelector('[data-yes]').onclick = () => close(true));
   function toast(text) {
+    const box = document.getElementById('toasts');
+    for (const t of [...box.children]) if (t.textContent === text) t.remove(); // pas de doublons empilés
+    while (box.children.length >= 3) box.firstElementChild.remove(); // 3 messages au plus à l'écran
     const el = document.createElement('div'); el.className = 'toast'; el.textContent = text;
-    document.getElementById('toasts').appendChild(el);
+    box.appendChild(el);
     el.onclick = () => el.remove();
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 2800);
   }
@@ -5082,7 +5103,25 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // l'adversaire au fond, à droite.
   const ROW_Y = { A: { back: 0.88, mid: 0.74, front: 0.6 }, B: { front: 0.43, mid: 0.33, back: 0.23 } };
   const ROW_X = { A: { back: 0.42, mid: 0.45, front: 0.47 }, B: { front: 0.53, mid: 0.55, back: 0.58 } };
+  // Terrain large (paysage) : équipes face à face, la tienne à gauche, l'adversaire à droite ; les rangs deviennent des colonnes.
+  const ROW_XW = { A: { back: 0.1, mid: 0.24, front: 0.38 }, B: { front: 0.62, mid: 0.76, back: 0.9 } };
+  function layoutWide(units, W, H) {
+    const pos = {}, S0 = Math.min(H * 0.3, W * 0.12, 128);
+    for (const side of ['A', 'B']) for (const row of B.ROWS) {
+      const list = units.filter(u => u.side === side && u.row === row), n = list.length;
+      list.forEach((u, i) => {
+        const size = S0 * (row === 'front' ? 1 : row === 'mid' ? 0.92 : 0.85) * (u.mon && u.mon.corrupt ? 1.3 : 1);
+        const top = size * 0.95 + 4, bottom = H - Math.max(26, size * 0.32); // pieds entre le haut et l'étiquette (nom + PV)
+        const step = n > 1 ? Math.min(size * 1.05, (bottom - top) / (n - 1)) : 0;
+        const y = Math.max(top, Math.min(bottom, (top + bottom) / 2 + (i - (n - 1) / 2) * step));
+        const x = Math.max(size / 2 + 2, Math.min(W - size / 2 - 2, ROW_XW[side][row] * W + (n >= 3 && i % 2 ? (side === 'A' ? -1 : 1) * size * 0.28 : 0)));
+        pos[u.uid] = { x, y, size };
+      });
+    }
+    return pos;
+  }
   function layoutField(units, W, H) {
+    if (W > H * 1.35) return layoutWide(units, W, H);
     const pos = {}, S0 = Math.min(W * 0.25, H * (H < 420 ? 0.24 : 0.18), 128);
     for (const side of ['A', 'B']) for (const row of B.ROWS) {
       const list = units.filter(u => u.side === side && u.row === row);
