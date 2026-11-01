@@ -2724,15 +2724,18 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const DEX_STEPS = [[10, { normal: 5 }], [25, { normal: 5, chance: 1 }], [50, { elite: 1, normal: 5 }], [100, { chance: 2, normal: 10 }], [150, { elite: 2 }], [200, { legend: 1, chance: 1 }], [300, { legend: 1, elite: 2 }], [400, { legend: 2 }]];
   const chapDone = c => !!S.campaign[c + '-' + (CHAPTER_STAGES - 1)];
   const T = (normal, chance, elite, legend, gems) => ({ tickets: Object.fromEntries(Object.entries({ normal, chance, elite, legend }).filter(([, v]) => v)), gems: gems || 0 });
+  // Fin de chaque chapitre de campagne (toutes difficultés) : 5 Poké Balls et 2 Hyper Balls ; fin de la campagne
+  // (dernier chapitre) : + 1 Master Ball en Normale, 2 en Difficile, 3 en Enfer. Récompenses fixes (non réduites).
+  const chapterRew = (c, masters, gems) => Object.assign(T(5, 0, 2, c === CHAPTERS.length - 1 ? masters : 0, gems), { exact: true });
   // Chaque série : valeur actuelle, paliers [objectif, récompense, libellé].
   const ACHIEVEMENTS = [
     { id: 'trainer', cat: 'Dresseur', n: 'Niveau de dresseur', icon: 'exp-share', val: () => S.trainer.lv, tiers: range(2, 100).map(l => [l, trainerRewards(l), `Atteindre le niveau ${l}`]) },
     { id: 'chapters', cat: 'Campagne', n: 'Chapitres libérés', icon: 'poke-ball', val: () => CHAPTERS.filter((_, c) => chapDone(c)).length,
-      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, T(3, c % 3 === 1 ? 1 : 0, 1, [2, 5, 8, 11].includes(c) ? 1 : 0, 150), `Vaincre le boss de ${r}`]) },
+      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 1, 150), `Vaincre le boss de ${r}`]) },
     { id: 'hard', cat: 'Campagne', n: 'Chapitres en Difficile', icon: 'poke-ball', val: () => CHAPTERS.filter((_, c) => prog('hard')[c + '-' + (CHAPTER_STAGES - 1)]).length,
-      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, T(0, 1, 1, c % 3 === 2 ? 1 : 0, 250), `Vaincre le boss de ${r} en Difficile`]) },
+      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 2, 250), `Vaincre le boss de ${r} en Difficile`]) },
     { id: 'hell', cat: 'Campagne', n: 'Chapitres en Enfer', icon: 'poke-ball', val: () => CHAPTERS.filter((_, c) => prog('hell')[c + '-' + (CHAPTER_STAGES - 1)]).length,
-      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, T(0, 0, 2, 1, 400), `Vaincre le boss de ${r} en Enfer`]) },
+      tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 3, 400), `Vaincre le boss de ${r} en Enfer`]) },
     { id: 'stages', cat: 'Campagne', n: 'Étapes de campagne', icon: 'poke-ball', val: () => Object.keys(S.campaign).length, tiers: range(5, 90, 5).map(n => [n, T(4, n % 15 === 0 ? 1 : 0), `Réussir ${n} étapes`]) },
     { id: 'stars', cat: 'Campagne', n: 'Étoiles de campagne', icon: 'star', val: () => Object.values(S.campaign).reduce((a, b) => a + b, 0),
       tiers: [[30, T(3, 1)], [60, T(3, 0, 1)], [90, T(5, 1)], [150, T(5, 1, 1)], [210, T(0, 2, 1)], [270, T(0, 2, 1, 1)]].map(([n, r]) => [n, r, `Cumuler ${n} étoiles`]) },
@@ -2760,6 +2763,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const carry = {};
     a.tiers = a.tiers.map(([n, r, l]) => {
       const t = {};
+      if (r.exact) return [n, { tickets: Object.assign({}, r.tickets), gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5 }, l];
       for (const [k, v] of Object.entries(r.tickets || {})) { carry[k] = (carry[k] || 0) + v * (BALL_CUT[k] || 1); const g = Math.floor(carry[k] + 1e-9); if (g) { t[k] = g; carry[k] -= g; } }
       return [n, { tickets: t, gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5 }, l];
     });
