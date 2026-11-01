@@ -1210,6 +1210,25 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .secret-mon.on { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,201,74,.55); transform: translateY(-3px); }
 .secret-ok { justify-self: center; min-width: 200px; margin-top: 4px; }
 .form-cat { margin: 4px 0 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,201,74,.12); border: 1px solid rgba(255,201,74,.4); color: #ffe39a; }
+/* Quêtes quotidiennes et hebdomadaires */
+.q-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.q-tabs button { position: relative; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-family: var(--display); font-size: 15px; cursor: pointer; }
+.q-tabs button.on { color: #fff; border-color: var(--cyan); background: linear-gradient(180deg, rgba(53,224,255,.18), var(--panel)); box-shadow: 0 0 12px rgba(53,224,255,.25); }
+.q-tabs .badge { position: static; display: inline-grid; margin-left: 4px; }
+.q-track { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.q-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .q-head b { font-family: var(--display); font-size: 17px; }
+.q-bar { position: relative; height: 12px; margin: 14px 14px 22px; border-radius: 8px; background: #0008; }
+.q-bar > i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--gold)); transition: width .4s; }
+.q-chest { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel2); display: grid; place-items: center; padding: 0; cursor: pointer; color: #fff; }
+.q-chest span { font-size: 17px; line-height: 1; } .q-chest small { position: absolute; top: 38px; font-size: 10px; color: var(--muted); }
+.q-chest.ready { border-color: var(--gold); box-shadow: 0 0 14px rgba(255,201,74,.7); animation: basepulse 1s ease-in-out infinite; }
+.q-chest.got { border-color: var(--good); opacity: .75; }
+.q-chests { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.q-cr { display: grid; gap: 4px; align-content: start; justify-items: center; text-align: center; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line); background: #0004; font-size: 11px; }
+.q-cr b { font-family: var(--display); font-size: 13px; } .q-cr .loot { display: grid; gap: 2px; justify-items: center; }
+.q-cr.ready { border-color: var(--gold); box-shadow: 0 0 12px rgba(255,201,74,.35); } .q-cr.got { opacity: .6; }
+.ach.done { opacity: .65; }
+.ach-rew .loot span { font-size: 11px; white-space: nowrap; }
 
 </style>
 <div id="app"></div>
@@ -2497,6 +2516,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (r.lv >= RUNE_MAX) return false;
     const cost = runeUpCost(r); if (S.gold < cost) return 'gold';
     S.gold -= cost;
+    qTrack('rune');
     if (!sure && !globalThis.NO_RUNE_FAIL && Math.random() * 100 >= runeUpChance(r)) { S.stats.runeFails = (S.stats.runeFails || 0) + 1; save(); return 'fail'; }
     r.lv++;
     if (r.lv % 3 === 0) { if (r.subs.length < 4) newSub(r); else { const x = pick(r.subs); x.v += Math.round(rnd(...SUB_RANGE[x.s]) * RUNE_RARITY[r.rar].m); } }
@@ -2611,7 +2631,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (n >= DUPE_MAX) return 'max';
     if (soulsOf(mon.sid) < 1) return 'soul';
     if (S.gold < SOUL_GOLD(n)) return 'gold';
-    S.gold -= SOUL_GOLD(n); S.souls[r]--; S.dupeLv = S.dupeLv || {}; S.dupeLv[r] = n + 1; save(); return true;
+    S.gold -= SOUL_GOLD(n); S.souls[r]--; S.dupeLv = S.dupeLv || {}; S.dupeLv[r] = n + 1; qTrack('evo'); save(); return true;
   }
   function migrateSouls() { if (S.dupes) { S.souls = S.souls || {}; for (const [k, v] of Object.entries(S.dupes)) S.souls[k] = (S.souls[k] || 0) + v; delete S.dupes; } S.souls = S.souls || {}; S.dupeLv = S.dupeLv || {}; }
   const dupeBonus = mon => { const n = Math.min(DUPE_MAX, dupesOf(mon.sid)); return n && S.mons.includes(mon) ? DUPE_BONUS[n - 1] : 0; };
@@ -2636,6 +2656,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const cost = Math.round(c.exp / 4); if (S.gold < cost) break;
       S.gold -= cost; S.candies[size]--; used++; gainExp(mon, c.exp);
     }
+    if (used) qTrack('candy', used);
     save(); return used;
   }
 
@@ -2666,7 +2687,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const c = evolveCost(mon);
     if ((S.crystals[c.type] || 0) < c.crystals) return 'crystals';
     if (S.gold < c.gold) return 'gold';
-    S.crystals[c.type] -= c.crystals; S.gold -= c.gold; mon.sid = toSid; markDex(toSid); S.stats.evos = (S.stats.evos || 0) + 1; save(); return true;
+    S.crystals[c.type] -= c.crystals; S.gold -= c.gold; mon.sid = toSid; markDex(toSid); S.stats.evos = (S.stats.evos || 0) + 1; qTrack('evo'); save(); return true;
   }
   const ULT_COST = { mega: { item: 'megaCrystal', n: 3, gold: 100000 }, gmax: { item: 'dynamax', n: 3, gold: 100000 } };
   // Forme ultime possible dès le niveau 80 (les Légendaires montent jusqu'à 100 sans elle).
@@ -2676,7 +2697,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const c = ULT_COST[f.kind];
     if ((S.items[c.item] || 0) < c.n) return 'item';
     if (S.gold < c.gold) return 'gold';
-    S.items[c.item] -= c.n; S.gold -= c.gold; mon.form = key; S.stats.ults = (S.stats.ults || 0) + 1; save(); return true;
+    S.items[c.item] -= c.n; S.gold -= c.gold; mon.form = key; S.stats.ults = (S.stats.ults || 0) + 1; qTrack('evo'); save(); return true;
   }
 
   // ---------- Invocation : 4 zones de tirage, chacune avec son ticket ----------
@@ -2767,7 +2788,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const mon = newMon(sid, 5);
       if (dupe && !mon.shiny) { const ty = A.sp(sid).t[0]; S.crystals[ty] = (S.crystals[ty] || 0) + A.RARITIES[rk].dupe; S.souls = S.souls || {}; S.souls[sid] = (S.souls[sid] || 0) + 1; out.push({ mon, rar: rk, dupe: true, crystals: A.RARITIES[rk].dupe, type: ty, soul: true }); }
       else { S.mons.push(mon); markDex(sid); out.push({ mon, rar: rk, dupe: false }); if (S.team.length < TEAM_SIZE) S.team.push(mon.uid); }
-      S.stats.pulls++;
+      S.stats.pulls++; qTrack('summon');
     }
     save(); return out;
   }
@@ -2846,6 +2867,70 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return { done, v, tier, total: a.tiers.length, ready: !!tier && v >= tier[0] };
   }
   const claimable = () => ACHIEVEMENTS.filter(a => achState(a).ready).length;
+  // ---------- Quêtes quotidiennes et hebdomadaires ----------
+  // Chaque quête accomplie se récupère (petite récompense + points) ; les points ouvrent des coffres de plus en plus
+  // précieux. Remise à zéro à minuit (quotidiennes) et le lundi (hebdomadaires).
+  const QUESTS = {
+    day: [
+      { id: 'login', ev: 'login', need: 1, pts: 10, n: 'Passer au Centre Pokémon', d: 'Lancer le jeu aujourd’hui', icon: 'poke-radar', rew: { gold: 3000 } },
+      { id: 'win', ev: 'win', need: 5, pts: 15, n: 'Victoires du jour', d: 'Gagner 5 combats', icon: 'trophy', rew: { gold: 5000 } },
+      { id: 'stage', ev: 'stage', need: 3, pts: 15, n: 'Explorateur', d: 'Gagner 3 étapes de campagne', icon: 'poke-ball', rew: { candies: { S: 5 } } },
+      { id: 'dungeon', ev: 'dungeon', need: 3, pts: 15, n: 'Spéléologue', d: 'Vaincre 3 donjons', icon: 'hard-stone', rew: { shards: 10 } },
+      { id: 'arena', ev: 'arena', need: 2, pts: 10, n: 'Duelliste', d: 'Livrer 2 combats d’arène', icon: 'gold-bottle-cap', rew: { gems: 20 } },
+      { id: 'summon', ev: 'summon', need: 1, pts: 10, n: 'Invocateur', d: 'Invoquer 1 Pokémon', icon: 'master-ball', rew: { gold: 3000 } },
+      { id: 'rune', ev: 'rune', need: 3, pts: 10, n: 'Forgeron', d: 'Tenter 3 améliorations de rune', icon: 'crucible', rew: { gold: 5000 } },
+      { id: 'candy', ev: 'candy', need: 5, pts: 15, n: 'Gourmandise', d: 'Donner 5 bonbons', icon: 'rare-candy', rew: { candies: { M: 1 } } },
+    ],
+    week: [
+      { id: 'days', ev: 'fullDay', need: 5, pts: 20, n: 'Assidu', d: 'Terminer toutes les quêtes du jour 5 fois', icon: 'exp-share', rew: { gems: 100 } },
+      { id: 'win', ev: 'win', need: 40, pts: 15, n: 'Champion de la semaine', d: 'Gagner 40 combats', icon: 'trophy', rew: { gold: 30000 } },
+      { id: 'dungeon', ev: 'dungeon', need: 20, pts: 15, n: 'Maître des profondeurs', d: 'Vaincre 20 donjons', icon: 'hard-stone', rew: { shards: 50 } },
+      { id: 'stage', ev: 'stage', need: 15, pts: 10, n: 'Grand voyageur', d: 'Gagner 15 étapes de campagne', icon: 'poke-ball', rew: { candies: { L: 1 } } },
+      { id: 'arena', ev: 'arena', need: 10, pts: 10, n: 'Gladiateur', d: 'Livrer 10 combats d’arène', icon: 'gold-bottle-cap', rew: { gems: 50 } },
+      { id: 'summon', ev: 'summon', need: 15, pts: 10, n: 'Grand invocateur', d: 'Invoquer 15 Pokémon', icon: 'master-ball', rew: { tickets: { normal: 1 } } },
+      { id: 'rune', ev: 'rune', need: 20, pts: 10, n: 'Maître forgeron', d: 'Tenter 20 améliorations de rune', icon: 'crucible', rew: { gold: 30000 } },
+      { id: 'evo', ev: 'evo', need: 2, pts: 10, n: 'Métamorphoses', d: 'Faire évoluer, éveiller ou renforcer d’une Âme 2 fois', icon: 'shiny-stone', rew: { gold: 20000 } },
+    ],
+  };
+  // Coffres de points : les récompenses précieuses (Super Ball chaque jour, Master Ball chaque semaine).
+  const QUEST_CHESTS = {
+    day: [{ at: 30, rew: { gold: 15000, candies: { M: 2 } } }, { at: 60, rew: { gems: 60, shards: 30 } }, { at: 100, rew: { tickets: { chance: 1 }, gems: 50 } }],
+    week: [{ at: 40, rew: { gold: 60000, candies: { L: 2 } } }, { at: 70, rew: { tickets: { elite: 1 }, shards: 100 } }, { at: 100, rew: { tickets: { legend: 1 } } }],
+  };
+  function questBook() {
+    const dk = dayKey(), wk = weekKey();
+    let q = S.quests;
+    if (!q || q.dk !== dk) q = S.quests = Object.assign(q || {}, { dk, d: {}, cd: {}, md: {}, full: false });
+    if (q.wk !== wk) Object.assign(q, { wk, w: {}, cw: {}, mw: {} });
+    return q;
+  }
+  function qTrack(ev, n) { const q = questBook(); n = n || 1; q.d[ev] = (q.d[ev] || 0) + n; q.w[ev] = (q.w[ev] || 0) + n; }
+  const questPts = (kind, q) => QUESTS[kind].filter(x => (kind === 'day' ? q.cd : q.cw)[x.id]).reduce((a, x) => a + x.pts, 0);
+  function questState(kind) {
+    const q = questBook(), cnt = kind === 'day' ? q.d : q.w, got = kind === 'day' ? q.cd : q.cw, ms = kind === 'day' ? q.md : q.mw, pts = questPts(kind, q);
+    const now = new Date(), next = kind === 'day' ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((8 - (now.getDay() || 7)) % 7 || 7));
+    return { pts, max: QUESTS[kind].reduce((a, x) => a + x.pts, 0), resetIn: next - now,
+      list: QUESTS[kind].map(x => ({ q: x, v: Math.min(x.need, cnt[x.ev] || 0), done: !!got[x.id], ready: !got[x.id] && (cnt[x.ev] || 0) >= x.need })),
+      chests: QUEST_CHESTS[kind].map(c => ({ at: c.at, rew: c.rew, got: !!ms[c.at], ready: !ms[c.at] && pts >= c.at })) };
+  }
+  function claimQuest(kind, id) {
+    const q = questBook(), x = QUESTS[kind].find(y => y.id === id), st = questState(kind).list.find(y => y.q.id === id);
+    if (!x || !st || !st.ready) return null;
+    (kind === 'day' ? q.cd : q.cw)[id] = true; applyLoot(x.rew);
+    if (kind === 'day' && !q.full && questPts('day', q) >= questState('day').max) { q.full = true; qTrack('fullDay'); }
+    save(); return x.rew;
+  }
+  function claimChest(kind, at) {
+    const q = questBook(), c = questState(kind).chests.find(y => y.at === at); if (!c || !c.ready) return null;
+    (kind === 'day' ? q.md : q.mw)[at] = true; applyLoot(c.rew); save(); return c.rew;
+  }
+  // Quêtes qui viennent d'être accomplies (pour l'annonce), une seule fois chacune.
+  function newQuests() {
+    const q = questBook(), out = []; q.seenD = q.dk === q.seenDk ? q.seenD || {} : {}; q.seenDk = q.dk; q.seenW = q.wk === q.seenWk ? q.seenW || {} : {}; q.seenWk = q.wk;
+    for (const k of ['day', 'week']) for (const x of questState(k).list) { const seen = k === 'day' ? q.seenD : q.seenW; if (x.ready && !seen[x.q.id]) { seen[x.q.id] = true; out.push(x.q.n); } }
+    return out;
+  }
+  const questsClaimable = () => ['day', 'week'].reduce((a, k) => { const st = questState(k); return a + st.list.filter(x => x.ready).length + st.chests.filter(c => c.ready).length; }, 0);
   function claimAch(id) {
     const a = ACHIEVEMENTS.find(x => x.id === id); if (!a) return null;
     const st = achState(a); if (!st.ready) return null;
@@ -3272,6 +3357,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function applyLoot(loot) {
     if (loot.gems) S.gems += loot.gems;
     if (loot.gold) S.gold += loot.gold;
+    if (loot.shards) S.shards = (S.shards || 0) + loot.shards;
     for (const [k, v] of Object.entries(loot.candies || {})) S.candies[k] = (S.candies[k] || 0) + v;
     for (const [t, v] of Object.entries(loot.crystals || {})) S.crystals[t] = (S.crystals[t] || 0) + v;
     for (const [k, v] of Object.entries(loot.items || {})) S.items[k] = (S.items[k] || 0) + v;
@@ -3309,6 +3395,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     applyLoot(res.loot);
     for (const u of allies) { const m = S.mons.find(x => x.uid === u.mon.uid); if (!m) continue; const before = m.lv; gainExp(m, exp); if (m.lv > before) res.ups.push({ name: A.sp(m.sid).n, from: before, to: m.lv }); }
     res.exp = exp;
+    qTrack('battle'); if (win) qTrack('win');
+    if (spec.kind === 'arena') qTrack('arena'); else if (win && spec.kind === 'campaign') qTrack('stage'); else if (win && spec.kind === 'dungeon') qTrack('dungeon');
     S.stats.battles++; if (win) { S.stats.wins++; res.trainerExp = 10 + avgLv; trainerExp(res.trainerExp); }
     save(); return res;
   }
@@ -3336,7 +3424,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
@@ -3366,7 +3454,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, dayKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
-    SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
+    QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, dungeonBattle,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
@@ -4566,7 +4654,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     'Mes Pokémon': ['centre', .12, .5, 'Accès PC · Système de gestion', 2.4], 'Choisir un Pokémon': ['centre', .12, .5, 'Accès PC', 2.4],
     'Équipe': ['centre', .375, .6, 'Soins · Infirmière Joëlle', 2.5], 'Inventaire': ['centre', .1, .8, 'Sac d’inventaire', 2.6], 'Runes': ['centre', .84, .62, 'Centre de fusion de runes', 2.2],
     'Campagne': ['aventure', .32, .8, 'Route 201 · La grande aventure', 2.4], 'Arène de l’Ombre': ['aventure', .9, .45, 'Arène de Célestia', 2.2], 'Tour Infinie': ['aventure', .14, .42, 'La Tour sans fin', 1.9],
-    'Succès': ['collection', .13, .5, 'Vos exploits sont écrits', 2.2], 'Pokédex': ['collection', .55, .5, 'Complétez votre quête Pokédex', 2.2], 'Règles': ['collection', .52, .3, 'Le guide du dresseur', 2],
+    'Succès': ['collection', .13, .5, 'Vos exploits sont écrits', 2.2], 'Quêtes': ['collection', .17, .27, 'Missions du jour et de la semaine', 2.4], 'Pokédex': ['collection', .55, .5, 'Complétez votre quête Pokédex', 2.2], 'Règles': ['collection', .52, .3, 'Le guide du dresseur', 2],
   };
   const SUB_RATIO = 1.6, IMG_RATIO = 768 / 1408; // fenêtre 16:10, illustrations 1408×768
   const subHero = title => {
@@ -4805,6 +4893,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const team = teamMons(), lead = team[0];
     const s = S(), tier = G.tierOf(s.arena.rating);
     const done = Object.keys(s.campaign).length;
+    const qn = G.questsClaimable();
     const ach = G.claimable(), balls = Object.keys(G.TICKETS).reduce((a, k) => a + (s.tickets[k] || 0), 0);
     const total = Object.keys(A.D.species).filter(id => A.RARITY[id]).length;
     // Point d'accès posé sur le décor : [clé, titre, détail, icône, position (gauche %, haut %), badge].
@@ -4823,12 +4912,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
           spot('maniac', 'Pokémaniac', G.diffOpen('defi') ? `Challenge · ${G.CHAPTERS.filter((_, c) => G.prog('defi')[c + '-' + (G.CHAPTER_STAGES - 1)]).length} / ${G.CHAPTERS.length}` : '🔒 Après l’Enfer', itemIcon('maniac'), 57, 58, 0, 'c-maniac' + (G.diffOpen('defi') ? '' : ' locked')) +
           eggs() + spot('tower', 'Tour Infinie', G.towerOpen() ? `Étage ${((s.tower || {}).best || 0) + 1} / ${G.TOWER_FLOORS}` : '🔒 Après le Difficile', itemIcon('trophy'), 8, 44, 0, 'c-gold' + (G.towerOpen() ? '' : ' locked'))}</div><div class="pano-hint">⟷ Glisse pour explorer la route</div></div>`, '')}
         ${page(2, 'Collection', `<div class="pano" style="--pbg:url(sprites/collection.webp)" data-start=".45"><div class="pano-in"><img src="sprites/collection.webp" alt="" draggable="false">${
+          spot('quests', 'Quêtes', qn ? `${qn} à récupérer` : 'Jour · Semaine', itemIcon('exp-share'), 21, 24, qn, qn ? 'c-cyan glow' : 'c-cyan') +
           spot('achievements', 'Succès', ach ? `${ach} à récupérer` : 'Trophées', itemIcon('trophy'), 10, 47, ach, ach ? 'c-gold glow' : 'c-gold') +
           spot('pokedex', 'Pokédex', `${s.dex.length} / ${total}`, itemIcon('poke-radar'), 46, 47, 0, 'c-cyan') +
           spot('summon', 'Invocation', `${balls} Ball${balls > 1 ? 's' : ''}`, ballHtml('master', 'tiny'), 80, 64, 0, 'c-violet')}</div></div>`, '')}
       </div>
-      <nav class="hub-tabs">${['🏥 Centre', '🗺️ Aventure', '🏆 Collection'].map((t, i) => `<button data-tab="${i}" class="${i === hubPage ? 'on' : ''}">${t}${i === 2 && ach ? `<i class="dot"></i>` : ''}</button>`).join('')}</nav></div>`;
-    const go = { tower: () => G.towerOpen() ? towerScreen() : toast('🔒 Tour Infinie : termine d’abord toute la campagne en Difficile.'), achievements: achievementsScreen, campaign: () => campaignScreen(campDiff === 'defi' ? 'normal' : campDiff), maniac: () => G.diffOpen('defi') ? campaignScreen('defi') : toast('🔒 Challenge Pokémaniac : termine d’abord toute la campagne en Enfer.'), crucible: () => crucibleScreen(), shop: () => shopScreen(), arena: arenaScreen, dungeons: dungeonsScreen, summon: summonScreen, mons: () => monsScreen(), team: teamScreen, bag: bagScreen, save: saveScreen, rules: rulesScreen, pokedex: () => pokedexScreen() };
+      <nav class="hub-tabs">${['🏥 Centre', '🗺️ Aventure', '🏆 Collection'].map((t, i) => `<button data-tab="${i}" class="${i === hubPage ? 'on' : ''}">${t}${i === 2 && (ach || qn) ? `<i class="dot"></i>` : ''}</button>`).join('')}</nav></div>`;
+    const go = { tower: () => G.towerOpen() ? towerScreen() : toast('🔒 Tour Infinie : termine d’abord toute la campagne en Difficile.'), achievements: achievementsScreen, quests: () => questsScreen(), campaign: () => campaignScreen(campDiff === 'defi' ? 'normal' : campDiff), maniac: () => G.diffOpen('defi') ? campaignScreen('defi') : toast('🔒 Challenge Pokémaniac : termine d’abord toute la campagne en Enfer.'), crucible: () => crucibleScreen(), shop: () => shopScreen(), arena: arenaScreen, dungeons: dungeonsScreen, summon: summonScreen, mons: () => monsScreen(), team: teamScreen, bag: bagScreen, save: saveScreen, rules: rulesScreen, pokedex: () => pokedexScreen() };
     app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go[b.dataset.go]());
     bindEggs();
     app.querySelector('[data-settings]').onclick = () => settingsScreen();
@@ -5561,6 +5651,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const parts = [];
     if (loot.gems) parts.push(`<span>✦ ${fmt(loot.gems)} gemmes</span>`);
     if (loot.gold) parts.push(`<span>₽ ${fmt(loot.gold)}</span>`);
+    if (loot.shards) parts.push(`<span>${itemIcon('shard')} Éclats runiques ×${fmt(loot.shards)}</span>`);
     for (const [k, v] of Object.entries(loot.candies || {})) if (v) parts.push(`<span>${itemIcon('rare-candy')} ${G.CANDIES[k].n} ×${v}</span>`);
     for (const [t, v] of Object.entries(loot.crystals || {})) parts.push(`<span><i class="crys" style="--tc:${typeColor(+t)}"></i> Cristal ${esc(G.TYPE_N(+t))} ×${v}</span>`);
     for (const [k, v] of Object.entries(loot.items || {})) parts.push(`<span>${k === 'megaCrystal' ? 'Méga-Cristal' : 'Particule Dynamax'} ×${v}</span>`);
@@ -5984,11 +6075,39 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Annonce des succès débloqués (après un combat, une invocation, une évolution…).
   function showNotices() {
     const fresh = G.newAchievements(); G.save();
+    const qd = G.newQuests().filter(n => n !== 'Passer au Centre Pokémon'); if (qd.length) toast(`📋 Quête${qd.length > 1 ? 's' : ''} accomplie${qd.length > 1 ? 's' : ''} : ${qd.slice(0, 2).join(' · ')}${qd.length > 2 ? '…' : ''} — à récupérer dans Quêtes.`);
     if (fresh.length) toast(`🏆 Succès débloqué${fresh.length > 1 ? 's' : ''} : ${fresh.slice(0, 2).join(' · ')}${fresh.length > 2 ? '…' : ''} — à récupérer dans Succès.`);
     return Promise.resolve();
   }
   const rewardTxt = r => [r.gems ? `<span>✦ ${r.gems}</span>` : '', ticketsTxt(r.tickets)].filter(Boolean).join(' ');
   let achCat = 'Tout';
+  // ---------- Quêtes quotidiennes et hebdomadaires ----------
+  let questTab = 'day';
+  const hm = ms => { const h = Math.floor(ms / 36e5), d = Math.floor(h / 24); return d ? `${d} j ${h % 24} h` : `${h} h ${Math.floor(ms / 6e4) % 60} min`; };
+  function questsScreen() {
+    const st = G.questState(questTab), other = questTab === 'day' ? 'week' : 'day';
+    const nOther = (o => o.list.filter(x => x.ready).length + o.chests.filter(c => c.ready).length)(G.questState(other));
+    app.innerHTML = topbar('Quêtes') + `<div class="page quests">
+      <div class="q-tabs">${[['day', 'Quotidiennes'], ['week', 'Hebdomadaires']].map(([k, n]) => `<button class="${questTab === k ? 'on' : ''}" data-qt="${k}">${n}${k === other && nOther ? ` <i class="badge">${nOther}</i>` : ''}</button>`).join('')}</div>
+      <section class="q-track">
+        <div class="q-head"><b>${st.pts} / ${st.max} points</b><span class="muted small">Renouvellement dans ${hm(st.resetIn)}</span></div>
+        <div class="q-bar"><i style="width:${st.pts / st.max * 100}%"></i>${st.chests.map(c => `<button class="q-chest ${c.got ? 'got' : c.ready ? 'ready' : ''}" style="left:${c.at / st.max * 100}%" data-chest="${c.at}" title="${c.at} points"><span>${c.got ? '✔' : '🎁'}</span><small>${c.at}</small></button>`).join('')}</div>
+        <div class="q-chests">${st.chests.map(c => `<div class="q-cr ${c.got ? 'got' : c.ready ? 'ready' : ''}"><b>${c.at} pts</b><div class="loot">${lootHtml(c.rew)}</div>${c.ready ? `<button class="btn primary small" data-chest="${c.at}">Ouvrir</button>` : c.got ? '<span class="done-mark">✔</span>' : ''}</div>`).join('')}</div>
+      </section>
+      <div class="ach-list">${st.list.slice().sort((a, b) => (b.ready - a.ready) || (a.done - b.done)).map(({ q, v, done, ready }) => `<div class="ach ${ready ? 'ready' : ''} ${done ? 'done' : ''}">${itemIcon(q.icon)}
+        <div class="ach-body"><b>${esc(q.n)}</b><span class="small">${esc(q.d)}</span><div class="xp"><i style="width:${v / q.need * 100}%"></i></div><span class="muted small">${v} / ${q.need} · +${q.pts} points</span></div>
+        <div class="ach-rew"><div class="rew loot">${lootHtml(q.rew)}</div>${ready ? `<button class="btn primary small" data-q="${q.id}">Récupérer</button>` : done ? '<span class="done-mark">✔</span>' : ''}</div></div>`).join('')}</div></div>`;
+    bindBack();
+    app.querySelectorAll('[data-qt]').forEach(b => b.onclick = () => { questTab = b.dataset.qt; questsScreen(); });
+    app.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const r = G.claimQuest(questTab, b.dataset.q); if (r) toast('Quête accomplie ! ' + lootHtml(r).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()); questsScreen(); });
+    app.querySelectorAll('[data-chest]').forEach(b => b.onclick = async () => {
+      const c = G.questState(questTab).chests.find(x => x.at === +b.dataset.chest);
+      if (!c || !c.ready) return toast(c && c.got ? 'Coffre déjà ouvert.' : `Coffre à ${b.dataset.chest} points : continue tes quêtes !`);
+      const r = G.claimChest(questTab, c.at); if (!r) return; Music.fanfare();
+      await modal(`<div class="notice"><span class="kicker">Coffre de ${c.at} points</span><h2>🎁 Récompenses</h2><div class="loot big-loot">${lootHtml(r)}</div><div class="row end"><button class="btn primary" data-close>Super !</button></div></div>`, null, { cls: 'center' });
+      questsScreen();
+    });
+  }
   function achievementsScreen() {
     const s = S(), need = G.trainerNeed(s.trainer.lv);
     const cats = ['Tout', ...new Set(G.ACHIEVEMENTS.map(a => a.cat))];
