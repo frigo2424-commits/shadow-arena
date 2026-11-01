@@ -3038,7 +3038,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // sa famille de Pokémon, son boss corrompu et son biome. On choisit celle des ensembles dont on a besoin.
   const RUNE_FORGES = {
     assaut: { n: 'Forge de l’Assaut', sets: ['fureur', 'lame'], line: [137, 233, 474], boss: 890, bossN: 'Éthernatos', biome: 'volcano', mult: 0.75, d: 'Porygon, Porygon2 et Porygon-Z ; Éthernatos corrompu en est le cœur.' },
-    tempete: { n: 'Forge de la Tempête', sets: ['celerite', 'elan', 'focus'], line: [81, 82, 462], boss: 386, bossN: 'Deoxys', biome: 'storm', mult: 0.93, d: 'Magnéti, Magnéton et Magnézone ; Deoxys corrompu y file à la vitesse de l’éclair.' },
+    tempete: { n: 'Forge de la Tempête', sets: ['celerite', 'elan', 'focus'], line: [81, 82, 462], boss: 386, bossN: 'Deoxys', biome: 'storm', mult: 0.84, d: 'Magnéti, Magnéton et Magnézone ; Deoxys corrompu y file à la vitesse de l’éclair.' },
     bastion: { n: 'Forge du Bastion', sets: ['vitalite', 'rempart', 'tenacite'], line: [436, 437, 437], boss: 889, bossN: 'Zamazenta', biome: 'cave', mult: 0.75, d: 'Archéomire et Archéodong ; Zamazenta corrompu garde le bouclier ancestral.' },
     sang: { n: 'Forge du Sang', sets: ['vampire', 'destruction'], line: [41, 42, 169], boss: 717, bossN: 'Yveltal', biome: 'ghost', mult: 0.66, d: 'Nosferapti, Nosferalto et Nostenfer ; Yveltal corrompu y draine la vie.' },
   };
@@ -3060,6 +3060,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Sous-niveaux 8 à 10 (meilleures récompenses) : alignés sur la campagne enchaînée. Le 8 et le 9 se méritent
   // après la Normale, le 10 demande une équipe d'Enfer. Le Sanctuaire Ultime a déjà son propre réglage.
   const DG_TOP = Object.assign({ 8: 1.3, 9: 1.2, 10: 1.2 }, globalThis.DG_TOP || {});
+  const DG_BUMP = +(globalThis.DG_BUMP || 1.05); // petit renfort général (hors Sanctuaire Ultime)
   const DG_TOP_K = { or: [1.3, 1.3, 1.05] }; // [8e, 9e, 10e] // Mine Dorée : Mewtwo corrompu y est allégé, elle restait trop facile en haut
   // Boss attitrés : Ronflex de plus en plus fort et endurant (Grotte Gourmande), Évoli de plus en plus fort,
   // Gigamax dès le 7e sous-niveau (Temple Élémentaire).
@@ -3138,7 +3139,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       waves = [team(rest.slice(0, 5), lv, WAVE_MULT), team(rest.slice(5, 11), lv + 1, WAVE_MULT), [corruptBoss(k, f, lv, rng), ...escort]];
     }
     // Difficulté relevée : tous les adversaires du donjon sont renforcés, de plus en plus avec la profondeur.
-    const hard = DG_HARD(f) * (k === 'ultime' ? 1 : (DG_TOP[f] || 1) * (f >= 8 && DG_TOP_K[k] ? DG_TOP_K[k][f - 8] : 1)); for (const w of waves) for (const e of w) e.mult *= hard;
+    const hard = DG_HARD(f) * (k === 'ultime' ? 1 : DG_BUMP * (DG_TOP[f] || 1) * (f >= 8 && DG_TOP_K[k] ? DG_TOP_K[k][f - 8] : 1)); for (const w of waves) for (const e of w) e.mult *= hard;
     if (k === 'ultime' && f === FLOORS) for (const e of waves[2].slice(1)) e.mult *= ULT_ESCORT;
     return { kind: 'dungeon', k, f, b, lv, enemies: waves[0], waves, types, boss: true, biome: b ? forgeOf(b).biome : DUNGEONS[k].biome };
   }
