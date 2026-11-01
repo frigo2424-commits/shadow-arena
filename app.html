@@ -927,7 +927,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .sm2 { padding-bottom: 0; }
 .sm2-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 20px; height: max(600px, calc(100dvh - 190px)); }
 .sm2-track::-webkit-scrollbar { display: none; }
-.sm2-panel { position: relative; flex: 0 0 100%; scroll-snap-align: center; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 14px 14px; border-radius: 20px; background: #05030c; }
+.sm2-panel { position: relative; flex: 0 0 100%; min-width: 0; max-width: 100%; scroll-snap-align: center; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 14px 14px; border-radius: 20px; background: #05030c; }
 .sm2-bg { position: absolute; inset: 0; z-index: -3; background: var(--sbgf); }
 .sm2-bg > canvas.biome-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
 .sm2-veil { position: absolute; inset: 0; z-index: -2; background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 28%, transparent 45%, rgba(4,2,10,.85) 72%, #04020a 100%); }
@@ -1082,7 +1082,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
   .battle-wrap .b-msg { font-size: 12.5px; }
   /* invocation : la Ball à gauche, la carte à droite */
   .sm2-track { height: calc(100dvh - 104px); }
-  .sm2-panel { display: grid; grid-template-columns: 1fr minmax(280px, 44%); grid-template-rows: auto 1fr; gap: 6px 14px; padding: 10px 14px; }
+  .sm2-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 44%); grid-template-rows: auto 1fr; gap: 6px 14px; padding: 10px 14px; }
   .sm2-top { grid-column: 1; text-align: left; } .sm2-top h2 { font-size: 26px; } .sm2-top p { margin: 0; }
   .sm2-ballwrap { grid-column: 1; grid-row: 2; align-self: center; height: 140px; }
   .sm2-card { grid-column: 2; grid-row: 1 / span 2; align-self: center; max-height: 100%; overflow-y: auto; }
@@ -1176,6 +1176,15 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .unit.u3d.foe.guarded .u-base { box-shadow: 0 0 0 2px rgba(120,200,255,.8), 0 0 14px rgba(120,200,255,.6); }
 .unit.u3d.foe.guarded .u-info b::before { content: '🛡 '; }
 .unit.u3d.foe.guarded:not(.target) { opacity: .92; }
+/* Audit : la carte d'invocation reste au-dessus du décor, taux non coupés */
+.sm2-card { position: relative; z-index: 5; }
+.sm2-rt span { white-space: nowrap; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .cine2 .c2-spr { width: 44vh !important; height: 44vh !important; }
+  .cine2 .c2-mon { top: 8%; }
+  .cine2 .c2-name b { font-size: 24px; }
+  .cine2 .cine-hint { bottom: 6px; font-size: 11px; }
+}
 
 </style>
 <div id="app"></div>
@@ -1992,7 +2001,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function nextWave(b, log) {
     b.past.push(...b.units.filter(u => u.side === 'B'));
     b.units = b.units.filter(u => u.side === 'A');
-    const fresh = b.waves.shift(); b.units.push(...fresh); b.wave++;
+    const fresh = b.waves.shift(); b.units.push(...fresh); b.wave++; b.rage0 = b.turn; // la Rage repart de zéro à chaque vague
     startEffects(b, fresh);
     log.push({ k: 'wave', n: b.wave, total: b.waveTotal, boss: fresh.some(u => u.boss), txt: `Vague ${b.wave} / ${b.waveTotal}${fresh.some(u => u.boss) ? ' : le boss arrive !' : ''}` });
   }
@@ -2121,7 +2130,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (t.teamDr) dmg *= 1 - Math.min(40, t.teamDr) / 100;
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
     if (b && covered(b, t) && !u.passives.infiltrate && !(sk.aim && sk.aim !== 'spread')) dmg *= single ? COVER[t.row] : AOE_FALL[t.row];
-    if (b && b.turn > ENRAGE) dmg *= 1 + (b.turn - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
+    if (b && b.turn - (b.rage0 || 0) > ENRAGE) dmg *= 1 + (b.turn - (b.rage0 || 0) - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
     // Migraine (Psykokwak, Akwakwak) : l'attaque de base peut déchaîner un pouvoir psychique qui met K.O. sur le coup.
     if (P.migraine && sk.slot === 0 && rand() * 100 < P.migraine) return { dmg: t.boss ? Math.max(Math.round(dmg), Math.round(t.maxHp * 0.25)) : t.hp + (t.shield || 0), tf, crit, migraine: true };
     return { dmg: Math.max(1, Math.round(dmg)), tf, crit };
@@ -2252,7 +2261,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     postEffects(b, u, sk, single, log);
     if (sk.guard && u.alive) addBuff(u, 'def', 1, log, 0, u);
     endTurn(b, u, log, false);
-    if (b.turn === ENRAGE + 1) log.push({ k: 'msg', txt: 'Rage ! Les dégâts augmentent à chaque tour.' });
+    if (b.turn - (b.rage0 || 0) === ENRAGE + 1) log.push({ k: 'msg', txt: 'Rage ! Les dégâts augmentent à chaque tour.' });
     return log;
   }
 
@@ -2736,9 +2745,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 2, 250), `Vaincre le boss de ${r} en Difficile`]) },
     { id: 'hell', cat: 'Campagne', n: 'Chapitres en Enfer', icon: 'poke-ball', val: () => CHAPTERS.filter((_, c) => prog('hell')[c + '-' + (CHAPTER_STAGES - 1)]).length,
       tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 3, 400), `Vaincre le boss de ${r} en Enfer`]) },
-    { id: 'stages', cat: 'Campagne', n: 'Étapes de campagne', icon: 'poke-ball', val: () => Object.keys(S.campaign).length, tiers: range(5, 90, 5).map(n => [n, T(4, n % 15 === 0 ? 1 : 0), `Réussir ${n} étapes`]) },
+    { id: 'stages', cat: 'Campagne', n: 'Étapes de campagne', icon: 'poke-ball', val: () => Object.keys(S.campaign).length, tiers: range(5, CHAPTERS.length * 10, 5).map(n => [n, T(4, n % 15 === 0 ? 1 : 0), `Réussir ${n} étapes`]) },
     { id: 'stars', cat: 'Campagne', n: 'Étoiles de campagne', icon: 'star', val: () => Object.values(S.campaign).reduce((a, b) => a + b, 0),
-      tiers: [[30, T(3, 1)], [60, T(3, 0, 1)], [90, T(5, 1)], [150, T(5, 1, 1)], [210, T(0, 2, 1)], [270, T(0, 2, 1, 1)]].map(([n, r]) => [n, r, `Cumuler ${n} étoiles`]) },
+      tiers: [[30, T(3, 1)], [60, T(3, 0, 1)], [90, T(5, 1)], [150, T(5, 1, 1)], [210, T(0, 2, 1)], [270, T(0, 2, 1, 1)], [330, T(0, 2, 2)], [360, T(0, 0, 2, 1)]].map(([n, r]) => [n, r, `Cumuler ${n} étoiles`]) },
     ...Object.keys({ bonbons: 1, cristaux: 1, runes: 1, or: 1, ultime: 1 }).map(k => ({ id: 'dg_' + k, cat: 'Donjons', n: () => DUNGEONS[k].n, icon: () => DUNGEONS[k].icon, val: () => S.dungeons[k] || 0,
       tiers: range(1, 10).map(f => [f, f === 10 ? T(3, 0, 1, 0, 200) : T(2, f % 5 === 0 ? 1 : 0), `Vaincre le sous-niveau ${f}`]) })),
     { id: 'arenaWins', cat: 'Arène', n: 'Victoires en arène', icon: 'gold-bottle-cap', val: () => S.arena.wins || 0,
@@ -2876,7 +2885,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   // Défi : ×1,2 comme en Difficile jusqu'au chapitre 7, puis allégé chapitre après chapitre (jusqu'à ×0,65) car
   // les derniers chapitres opposent des Légendaires et Mythiques à une équipe sans Légendaires (réglé par simulation).
-  const diffMult = (d, c) => d === 'defi' ? (c <= 6 ? 1.2 : Math.max(0.65, 1.2 - (c - 6) * 0.11)) : DIFFS[d].mult;
+  const diffMult = (d, c) => d === 'defi' ? (c <= 6 ? 1.2 : Math.max(0.6, 1.2 - (c - 6) * 0.125)) : DIFFS[d].mult;
   const campaignDone = d => !!prog(d)[(CHAPTERS.length - 1) + '-' + (CHAPTER_STAGES - 1)];
   // Progression (étoiles par étape) d'une difficulté.
   function prog(d) { if (!d || d === 'normal') return S.campaign; S.campaignD = S.campaignD || {}; return (S.campaignD[d] = S.campaignD[d] || {}); }
@@ -3007,9 +3016,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const fg = k === 'runes' ? forgeOf(b) : null;
     const mon = themedMon(fg ? fg.boss : CORRUPT[k].sid, lv + 3, false, rng); mon.corrupt = true;
     if (f === FLOORS) { const u = A.ultimatesOf(mon.sid); if (u.length) mon.form = u[0].key; }
-    return { mon, boss: true, mult: enemyMult(lv + 3) * (fg ? fg.mult : CORRUPT_MULT[k]) * (1 + 0.02 * f), hpMult: 1.3 + 0.08 * f, fx: CORRUPT_FX };
+    const top = f === FLOORS && k === 'ultime' ? ULT_TOP : 1;
+    return { mon, boss: true, mult: enemyMult(lv + 3) * (fg ? fg.mult : CORRUPT_MULT[k]) * (1 + 0.02 * f) * top, hpMult: (1.3 + 0.08 * f) * top, fx: CORRUPT_FX };
   }
   // Réglé par simulation pour garder la difficulté des donjons d'avant (Mewtwo et Éthernatos sont bien plus forts de base).
+  // Sanctuaire Ultime, 10e sous-niveau : Zygarde Forme Parfaite et son escorte (formes ultimes niv. 100) sont
+  // allégés, sinon même 6 Légendaires niv. 100 aux runes Mythiques +15 ne passaient pas (réglé par simulation).
+  const ULT_TOP = 0.5, ULT_ESCORT = 0.85;
   const CORRUPT_MULT = { bonbons: 0.8, cristaux: 0.92, runes: 0.75, or: 0.65, ultime: 1.15 };
   function themedMon(sid, lv, ultimate, rng) {
     const mon = newMon(sid, Math.max(1, Math.min(100, lv))); mon.shiny = false; mon.uid = 'e' + uid();
@@ -3053,6 +3066,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     }
     // Difficulté relevée : tous les adversaires du donjon sont renforcés, de plus en plus avec la profondeur.
     const hard = DG_HARD(f); for (const w of waves) for (const e of w) e.mult *= hard;
+    if (k === 'ultime' && f === FLOORS) for (const e of waves[2].slice(1)) e.mult *= ULT_ESCORT;
     return { kind: 'dungeon', k, f, b, lv, enemies: waves[0], waves, types, boss: true, biome: b ? forgeOf(b).biome : DUNGEONS[k].biome };
   }
 
@@ -5659,7 +5673,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         if (k !== i && handles[k]) { handles[k].stop(); const cv = bg.querySelector('canvas'); if (cv) cv.remove(); handles[k] = null; } });
     };
     const go = (i, smooth) => { i = Math.max(0, Math.min(panels.length - 1, i)); track.scrollTo({ left: i * track.clientWidth, behavior: smooth ? 'smooth' : 'auto' }); activate(i); };
-    let st = 0; track.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (i !== smPanel || !panels[i].classList.contains('active')) activate(i); }, 90); }, { passive: true });
+    let st = 0; track.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (Math.abs(track.scrollLeft - i * track.clientWidth) > 2) track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' }); if (i !== smPanel || !panels[i].classList.contains('active')) activate(i); }, 90); }, { passive: true });
     dots.forEach(d => d.onclick = () => go(+d.dataset.dot, true));
     app.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => go(smPanel + +b.dataset.dir, true));
     requestAnimationFrame(() => go(smPanel, false));
