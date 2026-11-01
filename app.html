@@ -3220,109 +3220,188 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 
 </script>
 <script>
-// Pokémon Shadow Arena — musique originale générée en direct (Web Audio, style chiptune).
-// Un thème pour les menus, un pour les combats, un pour les boss, une fanfare de victoire. Aucun fichier audio.
+// Pokémon Shadow Arena — musiques originales façon Game Boy, générées en direct (Web Audio, aucun fichier audio).
+// Le son imite la console des premiers jeux : 2 voies « pulse » (ondes carrées à rapport cyclique 12,5 / 25 / 50 %),
+// une voie « wave » pour la basse, une voie de bruit pour la batterie, enveloppes sèches et vibrato sur les notes tenues.
+// Toutes les mélodies sont des compositions originales.
 (function (root) {
   'use strict';
-  const N = n => n == null ? null : 440 * Math.pow(2, (n - 69) / 12); // note MIDI → fréquence
-  // Grille de 16 pas par mesure. Lead / basse : notes MIDI ou null ; batterie : k (grosse caisse), s (caisse claire), h (charleston).
-  const seq = (str, base) => str.trim().split(/\s+/).map(t => t === '.' ? null : base + Number(t));
-  const TRACKS = {
-    // Menus : aventure calme, do majeur, Do – La m – Fa – Sol.
-    menu: { bpm: 104, wave: 'square', vol: 0.06,
-      lead: seq(`0 . 4 . 7 . 12 . 11 . 7 . 4 . 7 .  9 . 12 . 16 . 12 . 9 . 12 . 9 7  5 . 9 . 12 . 9 . 7 . 5 . 4 . 2 .  7 . . 11 . 14 . 12 . . 11 9 7 . . .`, 72),
-      bass: seq(`0 . 12 . 0 . 12 . 0 . 12 . 0 . 12 .  -3 . 9 . -3 . 9 . -3 . 9 . -3 . 9 .  -7 . 5 . -7 . 5 . -7 . 5 . -7 . 5 .  -5 . 7 . -5 . 7 . -5 . 7 . -5 . 7 .`, 48),
-      drums: 'k . h . . . h . k . h . . . h . '.repeat(4).trim().split(/\s+/) },
-    // Combat : rythme soutenu, la mineur, La m – Fa – Sol – Mi.
-    battle: { bpm: 152, wave: 'square', vol: 0.055,
-      lead: seq(`12 . 12 15 . 12 . 19 . 17 15 . 14 . 12 .  10 . 12 . 13 . 12 . 10 . 8 . 10 . 12 .  14 . 14 17 . 14 . 22 . 21 19 . 17 . 14 .  16 . 15 . 16 . 19 . 23 . 22 . 20 . 19 .`, 69),
-      bass: seq(`0 0 12 0 0 12 0 12 0 0 12 0 0 12 0 12  -4 -4 8 -4 -4 8 -4 8 -4 -4 8 -4 -4 8 -4 8  -2 -2 10 -2 -2 10 -2 10 -2 -2 10 -2 -2 10 -2 10  -5 -5 7 -5 -5 7 -5 7 -5 -5 7 -5 -5 7 -1 2`, 45),
-      drums: 'k h s h k h s h k h s h k h s s '.repeat(4).trim().split(/\s+/) },
-    // Boss : plus lourd, ré mineur chromatique.
-    boss: { bpm: 140, wave: 'sawtooth', vol: 0.045,
-      lead: seq(`0 . 3 . 6 . 5 . 3 . 1 . 0 . . .  0 . 3 . 7 . 6 . 5 . 3 . 6 . 5 .  0 . 3 . 6 . 5 . 8 . 7 . 6 . 5 .  3 . 2 . 1 . 0 . -1 . 0 . 1 . 2 .`, 74),
-      bass: seq(`0 0 0 12 0 0 1 0 0 0 0 12 0 0 -1 0  0 0 0 12 0 0 1 0 0 0 0 12 0 0 -1 0  -2 -2 -2 10 -2 -2 -1 -2 -2 -2 -2 10 -2 -2 -3 -2  -4 -4 -4 8 -4 -4 -3 -4 -5 -5 -5 7 -5 -5 -6 -5`, 38),
-      drums: 'k . s k k h s h k . s k k h s s '.repeat(4).trim().split(/\s+/) },
-  };
-  const FANFARE = [[72, 0.12], [76, 0.12], [79, 0.12], [84, 0.36], [79, 0.12], [84, 0.6]];
+  const MIDI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+  const N = n => 440 * Math.pow(2, (n - 69) / 12);
+  // Notation : « C5:2 E5:2 -:4 » — note (ou - pour un silence) : durée en doubles croches. Les | sont décoratifs.
+  function parse(str) {
+    const out = []; let step = 0;
+    for (const tok of str.replace(/\|/g, ' ').trim().split(/\s+/)) {
+      const [n, l] = tok.split(':'), len = +(l || 1);
+      if (n !== '-') { const m = n.match(/^([A-G][#b]?)(-?\d)$/); out.push({ step, note: 12 * (+m[2] + 1) + MIDI[m[1]], len }); }
+      step += len;
+    }
+    return { ev: out, len: step };
+  }
+  // Arpèges sur une grille d'accords : un accord par mesure (16 pas), notes jouées en croches ou doubles croches.
+  function arp(chords, oct, every, pattern) {
+    const out = []; let step = 0;
+    for (const ch of chords.trim().split(/\s+/)) {
+      const notes = ch.split('-').map(n => 12 * (oct + 1) + MIDI[n]);
+      for (let i = 0; i < 16 / every; i++) { const k = pattern ? pattern[i % pattern.length] : i; out.push({ step: step + i * every, note: notes[k % notes.length] + (k >= notes.length ? 12 : 0), len: every }); }
+      step += 16;
+    }
+    return { ev: out, len: step };
+  }
+  // Basse : fondamentale et quinte / octave selon un motif par mesure.
+  function bass(roots, oct, pattern) {
+    const out = []; let step = 0;
+    for (const r of roots.trim().split(/\s+/)) {
+      const n0 = 12 * (oct + 1) + MIDI[r];
+      for (const [s, iv, l] of pattern) out.push({ step: step + s, note: n0 + iv, len: l });
+      step += 16;
+    }
+    return { ev: out, len: step };
+  }
+  const drums = (bar, bars) => { const out = []; for (let b = 0; b < bars; b++) bar.trim().split(/\s+/).forEach((d, i) => { if (d !== '.') out.push({ step: b * 16 + i, d }); }); return { ev: out, len: bars * 16 }; };
+  const P8 = [[0, 0, 2], [4, 12, 2], [8, 0, 2], [12, 7, 2]], DRIVE = [[0, 0, 1], [2, 12, 1], [4, 0, 1], [6, 12, 1], [8, 0, 1], [10, 12, 1], [12, 0, 1], [14, 7, 1]];
 
-  let ctx = null, master = null, noise = null, current = null, wanted = 'menu', step = 0, nextTime = 0, timer = null;
+  const TRACKS = {
+    // Centre Pokémon : douce et accueillante, fa majeur (Fa – Do/Mi – Ré m – Do7).
+    menu: { bpm: 112, duty: [0.125, 0.25], vol: [0.07, 0.035, 0.11],
+      lead: parse(`F5:2 A5:2 C6:4 A5:2 G5:2 F5:4 | E5:2 G5:2 C6:4 Bb5:2 A5:2 G5:4 | D5:2 F5:2 A5:4 G5:2 F5:2 D5:4 | E5:2 G5:2 Bb5:2 A5:2 G5:8
+                   F5:2 A5:2 C6:3 D6:1 C6:2 A5:2 F5:4 | G5:2 Bb5:2 D6:4 C6:2 Bb5:2 A5:4 | Bb5:2 A5:2 G5:2 F5:2 E5:2 F5:2 G5:4 | F5:12 -:4`),
+      harm: arp('F-A-C C-E-G D-F-A C-E-Bb F-A-C G-Bb-D C-E-G F-A-C', 4, 2, [0, 1, 2, 1]),
+      bass: bass('F C D C F G C F', 2, P8), drums: drums('k . h . . . h . k . h . . . h .', 8) },
+    // Aventure : la route, entraînante, sol majeur (Sol – Sol – Do – Ré).
+    route: { bpm: 140, duty: [0.25, 0.125], vol: [0.065, 0.035, 0.11],
+      lead: parse(`G4:2 B4:2 D5:3 B4:1 C5:2 E5:2 D5:4 | B4:2 D5:2 G5:3 F#5:1 E5:2 D5:2 B4:4 | C5:2 E5:2 A5:3 G5:1 F#5:2 E5:2 D5:4 | E5:2 F#5:2 G5:2 A5:2 B5:4 A5:4
+                   B5:2 A5:2 G5:2 D5:2 E5:2 F#5:2 G5:4 | E5:2 G5:2 C6:3 B5:1 A5:2 G5:2 E5:4 | F#5:2 G5:2 A5:2 F#5:2 D5:2 E5:2 F#5:4 | G5:12 -:4`),
+      harm: arp('G-B-D G-B-D C-E-G D-F#-A G-B-D C-E-G D-F#-A G-B-D', 4, 2, [0, 2, 1, 2]),
+      bass: bass('G G C D G C D G', 2, P8), drums: drums('k . h . s . h . k k h . s . h h', 8) },
+    // Grotte des donjons : inquiétante, mi mineur et accords diminués, lente et chromatique.
+    cave: { bpm: 92, duty: [0.5, 0.125], vol: [0.055, 0.03, 0.1],
+      lead: parse(`E5:6 -:2 D#5:4 B4:4 | C5:6 -:2 B4:4 F5:4 | E5:4 G5:4 F#5:4 A#4:4 | B4:12 -:4
+                   G5:6 -:2 F#5:4 D#5:4 | E5:6 -:2 D5:4 A#4:4 | B4:4 C5:4 C#5:4 D#5:4 | E5:14 -:2`),
+      harm: arp('E-G-B C-E-G A#-C#-E B-D#-F# E-G-B C-E-G A#-C#-E B-D#-F#', 3, 1, [0, 1, 2, 3, 2, 1]),
+      bass: bass('E C A# B E C A# B', 1, [[0, 0, 6], [8, 0, 6]]), drums: drums('k . . . . . . . k . . . . . . h', 8) },
+    // Combat : rapide, la mineur (La m – Fa – La m – Mi).
+    battle: { bpm: 168, duty: [0.25, 0.5], vol: [0.06, 0.03, 0.11],
+      lead: parse(`A5:2 A5:1 C6:1 B5:2 A5:2 G5:2 A5:2 E5:4 | F5:2 F5:1 A5:1 G5:2 F5:2 E5:2 D5:2 E5:4 | A5:2 A5:1 C6:1 D6:2 C6:2 B5:2 C6:2 A5:4 | G#5:2 B5:2 D6:2 E6:2 D6:2 B5:2 G#5:4
+                   C6:2 B5:2 A5:2 E5:2 F5:2 G5:2 A5:4 | D6:2 C6:2 B5:2 G5:2 A5:2 B5:2 C6:4 | B5:2 A5:2 G#5:2 A5:2 B5:2 C6:2 D6:2 E6:2 | A5:8 E5:4 A4:4`),
+      harm: arp('A-C-E F-A-C A-C-E E-G#-B A-C-E D-F-A E-G#-B A-C-E', 4, 1, [0, 1, 2, 1]),
+      bass: bass('A F A E A D E A', 2, DRIVE), drums: drums('k h s h k h s h k k s h k h s s', 8) },
+    // Boss : ré mineur chromatique, lourde et pressante.
+    boss: { bpm: 176, duty: [0.5, 0.25], vol: [0.06, 0.03, 0.12],
+      lead: parse(`D5:1 D5:1 F5:2 D5:1 D5:1 G#5:2 A5:4 G5:2 F5:2 | E5:1 E5:1 G5:2 E5:1 E5:1 A#5:2 A5:4 C6:4 | D6:2 C#6:2 C6:2 B5:2 A#5:2 A5:2 G#5:2 A5:2 | F5:2 E5:2 F5:2 G5:2 A5:8
+                   D6:2 A5:2 F5:2 D5:2 D#6:2 A#5:2 G5:2 D#5:2 | D6:2 A5:2 F5:2 D5:2 C#6:2 A5:2 E5:2 C#5:2 | D5:2 E5:2 F5:2 G5:2 A5:2 A#5:2 C#6:2 E6:2 | D6:8 A5:4 D5:4`),
+      harm: arp('D-F-A E-G-A# D-F-A A-C#-E D-F-A D#-G-A# A-C#-E D-F-A', 3, 1, [0, 1, 2, 3, 2, 1, 0, 1]),
+      bass: bass('D E D A D D# A D', 1, [[0, 0, 1], [1, 0, 1], [2, 12, 1], [3, 0, 1], [4, 0, 1], [5, 1, 1], [6, 12, 1], [7, 0, 1], [8, 0, 1], [9, 0, 1], [10, 12, 1], [11, 0, 1], [12, 0, 1], [13, -1, 1], [14, 12, 1], [15, 0, 1]]),
+      drums: drums('k . s k k h s h k . s k k h s s', 8) },
+    // Tour Infinie et Challenge : épique, do mineur.
+    legend: { bpm: 132, duty: [0.25, 0.125], vol: [0.065, 0.035, 0.12],
+      lead: parse(`C5:4 G5:4 Eb5:2 F5:2 G5:4 | Ab5:4 G5:4 F5:2 Eb5:2 D5:4 | Eb5:4 Bb5:4 G5:2 Ab5:2 Bb5:4 | C6:6 B5:2 C6:8
+                   Eb6:4 D6:4 C6:2 Bb5:2 Ab5:4 | G5:4 Ab5:4 Bb5:2 C6:2 D6:4 | Eb6:2 D6:2 C6:2 B5:2 C6:2 D6:2 Eb6:2 F6:2 | G6:8 C6:8`),
+      harm: arp('C-Eb-G Ab-C-Eb Eb-G-Bb G-B-D Ab-C-Eb Eb-G-Bb F-Ab-C G-B-D', 4, 2, [0, 1, 2, 1]),
+      bass: bass('C Ab Eb G Ab Eb F G', 2, P8), drums: drums('k . h . s . h k k . h . s . s h', 8) },
+  };
+  // Fanfare de victoire, courte et triomphale (originale).
+  const FANFARE = parse('C5:1 E5:1 G5:1 C6:3 G5:1 C6:1 E6:6 -:2 D6:1 E6:1 F6:1 G6:8');
+
+  let ctx = null, master = null, noise = null, waves = {}, current = null, wanted = 'menu', step = 0, nextTime = 0, timer = null;
   let on = true;
   try { on = localStorage.getItem('psa_music') !== '0'; } catch (e) { /* ignore */ }
 
   function init() {
     if (ctx) return true;
     const AC = root.AudioContext || root.webkitAudioContext; if (!AC) return false;
-    ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? 1 : 0; master.connect(ctx.destination);
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? 1 : 0;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000; // adoucit un peu le grain
+    master.connect(lp); lp.connect(ctx.destination);
     noise = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
-    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const d = noise.getChannelData(0); let r = 1; for (let i = 0; i < d.length; i++) { r = (r * 1103515245 + 12345) & 0x7fffffff; d[i] = (r / 0x3fffffff) - 1; }
     return true;
   }
-  function tone(freq, t, dur, wave, vol) {
+  // Onde carrée à rapport cyclique donné (série de Fourier) et onde « wave » de la basse (triangle à 4 bits).
+  function pulseWave(duty) {
+    if (waves[duty]) return waves[duty];
+    const n = 48, re = new Float32Array(n), im = new Float32Array(n);
+    for (let k = 1; k < n; k++) { re[k] = 2 / (k * Math.PI) * Math.sin(2 * Math.PI * k * duty); im[k] = 2 / (k * Math.PI) * (1 - Math.cos(2 * Math.PI * k * duty)); }
+    return (waves[duty] = ctx.createPeriodicWave(re, im));
+  }
+  function bassWave() {
+    if (waves.bass) return waves.bass;
+    const n = 24, re = new Float32Array(n), im = new Float32Array(n);
+    for (let k = 1; k < n; k += 2) im[k] = (8 / (Math.PI * Math.PI * k * k)) * (((k - 1) / 2) % 2 ? -1 : 1) * (1 + 0.15 * (k > 1)); // triangle un peu « crénelé »
+    return (waves.bass = ctx.createPeriodicWave(re, im));
+  }
+  // Une note : enveloppe sèche (attaque immédiate, légère décroissance), vibrato sur les notes longues.
+  function note(wave, freq, t, dur, vol, vib) {
     const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = wave; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.setPeriodicWave(wave); o.frequency.setValueAtTime(freq, t);
+    if (vib && dur > 0.28) {
+      const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 5.5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(freq * 0.006, t + 0.25);
+      lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t + dur + 0.05);
+    }
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.setTargetAtTime(vol * 0.62, t + 0.02, 0.12);
+    g.gain.setValueAtTime(vol * 0.62, t + Math.max(0.03, dur - 0.03)); g.gain.linearRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
   }
   function drum(kind, t) {
     if (kind === 'k') {
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-      g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.16);
+      o.type = 'square'; o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.09);
+      g.gain.setValueAtTime(0.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.12);
     } else {
       const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-      src.buffer = noise; f.type = kind === 'h' ? 'highpass' : 'bandpass'; f.frequency.value = kind === 'h' ? 7000 : 1800;
-      const dur = kind === 'h' ? 0.04 : 0.12, vol = kind === 'h' ? 0.05 : 0.14;
+      src.buffer = noise; f.type = kind === 'h' ? 'highpass' : 'bandpass'; f.frequency.value = kind === 'h' ? 8000 : 2200; f.Q.value = kind === 's' ? 0.8 : 0.5;
+      const dur = kind === 'h' ? 0.035 : 0.13, vol = kind === 'h' ? 0.05 : 0.16;
       g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      src.connect(f); f.connect(g); g.connect(master); src.start(t); src.stop(t + dur + 0.01);
+      src.connect(f); f.connect(g); g.connect(master); src.start(t, Math.random() * 0.3); src.stop(t + dur + 0.01);
     }
   }
-  // Ordonnanceur : programme les notes un peu à l'avance pour un tempo stable.
+  // Ordonnanceur : programme chaque voie un peu à l'avance pour un tempo stable ; boucle sur la piste la plus longue.
   function tick() {
     const tr = TRACKS[current]; if (!tr) return;
-    const dt = 60 / tr.bpm / 4;
-    while (nextTime < ctx.currentTime + 0.12) {
-      const i = step % tr.lead.length;
-      if (tr.lead[i] != null) tone(N(tr.lead[i]), nextTime, dt * 1.8, tr.wave, tr.vol);
-      const b = tr.bass[i % tr.bass.length]; if (b != null) tone(N(b), nextTime, dt * 0.9, 'triangle', 0.12);
-      const dr = tr.drums[i % tr.drums.length]; if (dr && dr !== '.') drum(dr, nextTime);
+    const dt = 60 / tr.bpm / 4, loop = Math.max(tr.lead.len, tr.harm.len, tr.bass.len, tr.drums.len);
+    while (nextTime < ctx.currentTime + 0.15) {
+      const s = step % loop;
+      for (const e of tr.lead.ev) if (e.step === s % tr.lead.len) note(pulseWave(tr.duty[0]), N(e.note), nextTime, e.len * dt * 0.95, tr.vol[0], true);
+      for (const e of tr.harm.ev) if (e.step === s % tr.harm.len) note(pulseWave(tr.duty[1]), N(e.note), nextTime, e.len * dt * 0.9, tr.vol[1], false);
+      for (const e of tr.bass.ev) if (e.step === s % tr.bass.len) note(bassWave(), N(e.note), nextTime, e.len * dt * 0.92, tr.vol[2], false);
+      for (const e of tr.drums.ev) if (e.step === s % tr.drums.len) drum(e.d, nextTime);
       nextTime += dt; step++;
     }
   }
   function start(name) {
-    if (!ctx) return;
+    if (!ctx || !TRACKS[name]) return;
     if (current === name && timer) return;
-    current = name; step = 0; nextTime = ctx.currentTime + 0.05;
+    current = name; step = 0; nextTime = ctx.currentTime + 0.06;
     clearInterval(timer); timer = setInterval(tick, 25);
   }
   // Choisit le morceau ; il démarre dès que le navigateur autorise le son (premier toucher).
-  function play(name) { wanted = name; if (ctx && ctx.state === 'running') start(name); }
+  function play(name) { wanted = TRACKS[name] ? name : 'menu'; if (ctx && ctx.state === 'running') start(wanted); }
   function fanfare() {
     if (!ctx || !on) return;
     clearInterval(timer); timer = null; current = null;
-    let t = ctx.currentTime + 0.05;
-    for (const [n, d] of FANFARE) { tone(N(n), t, d * 1.5, 'square', 0.08); tone(N(n - 12), t, d * 1.5, 'triangle', 0.1); t += d; }
+    const t0 = ctx.currentTime + 0.05, dt = 60 / 150 / 4;
+    for (const e of FANFARE.ev) { note(pulseWave(0.25), N(e.note), t0 + e.step * dt, e.len * dt * 0.95, 0.07, true); note(pulseWave(0.125), N(e.note - 12), t0 + e.step * dt, e.len * dt * 0.9, 0.035, false); }
+    for (const [s, n] of [[0, 48], [6, 55], [12, 48], [20, 43]]) note(bassWave(), N(n), t0 + s * dt, 6 * dt, 0.11, false);
   }
   // Effets sonores des cinématiques d'évolution : montée d'énergie, scintillement, explosion de lumière.
-  function sweep(f0, f1, t, dur, wave, vol) {
+  function sweep(f0, f1, t, dur, vol) {
     const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = wave; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    o.setPeriodicWave(pulseWave(0.25)); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
   }
   function sfx(kind, dur) {
     if (!ctx || !on) return;
     const t = ctx.currentTime + 0.02;
-    if (kind === 'charge') { clearInterval(timer); timer = null; current = null; sweep(110, 880, t, dur || 2, 'sawtooth', 0.05); sweep(220, 1760, t, dur || 2, 'triangle', 0.06); }
-    else if (kind === 'sparkle') { for (let i = 0; i < 6; i++) tone(N(84 + [0, 4, 7, 12, 16, 19][i]), t + i * 0.06, 0.25, 'triangle', 0.05); }
+    if (kind === 'charge') { clearInterval(timer); timer = null; current = null; sweep(110, 880, t, dur || 2, 0.05); sweep(220, 1760, t, dur || 2, 0.035); }
+    else if (kind === 'sparkle') { for (let i = 0; i < 6; i++) note(pulseWave(0.125), N(84 + [0, 4, 7, 12, 16, 19][i]), t + i * 0.06, 0.2, 0.05, false); }
     else if (kind === 'boom') {
       const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
       src.buffer = noise; src.loop = true; f.type = 'lowpass'; f.frequency.setValueAtTime(4000, t); f.frequency.exponentialRampToValueAtTime(80, t + 1.4);
-      g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+      g.gain.setValueAtTime(0.4, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
       src.connect(f); f.connect(g); g.connect(master); src.start(t); src.stop(t + 1.6);
-      sweep(160, 30, t, 0.8, 'sine', 0.5);
-    } else if (kind === 'reveal') { let tt = t; for (const [n, d] of [[67, 0.1], [72, 0.1], [76, 0.1], [79, 0.1], [84, 0.5]]) { tone(N(n), tt, d * 2, 'square', 0.07); tone(N(n + 12), tt, d * 2, 'triangle', 0.05); tt += d; } }
+    } else if (kind === 'reveal') { const dt = 0.09; [67, 72, 76, 79, 84].forEach((n, i) => { note(pulseWave(0.25), N(n), t + i * dt, i === 4 ? 0.6 : dt * 1.6, 0.07, i === 4); note(pulseWave(0.125), N(n - 12), t + i * dt, dt * 1.6, 0.035, false); }); }
   }
   function setOn(v) {
     on = v; try { localStorage.setItem('psa_music', v ? '1' : '0'); } catch (e) { /* ignore */ }
@@ -3333,7 +3412,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   root.addEventListener('keydown', unlock);
   document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else ctx.resume(); });
 
-  root.ArenaMusic = { play, fanfare, sfx, setOn, get on() { return on; } };
+  root.ArenaMusic = { play, fanfare, sfx, setOn, get on() { return on; }, tracks: Object.keys(TRACKS) };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -4350,8 +4429,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
   // Chaque nouvel écran s'ouvre en haut de page (un simple rafraîchissement du même écran garde la position).
   let lastTitle = null;
+  // Musique selon l'écran : grotte pour les donjons, épique pour la Tour et le Challenge, route pour l'aventure.
+  const CAVE_T = ['Donjons', 'Grotte Gourmande', 'Temple Élémentaire', 'Forge des Runes', 'Mine Dorée', 'Sanctuaire Ultime'];
+  const trackFor = title => CAVE_T.includes(title) ? 'cave' : ['Tour Infinie', 'Challenge Pokémaniac'].includes(title) ? 'legend'
+    : ['Campagne', 'Arène de l’Ombre'].includes(title) || /^\d+\. /.test(title) || /^Étape /.test(title) ? 'route' : 'menu';
   function topbar(title, back) {
-    const s = S(); Music.play('menu');
+    const s = S(); Music.play(back === false ? (hubPage === 1 ? 'route' : 'menu') : trackFor(title));
     if (title !== lastTitle) { lastTitle = title; window.scrollTo(0, 0); }
     return `<header class="topbar">${back !== false ? `<button class="btn icon-btn" data-back aria-label="Retour">‹</button>` : `<button class="btn icon-btn gear-btn" data-settings aria-label="Paramètres" title="Paramètres">⚙</button>`}<h1>${esc(title)}</h1>${back === false && !isStandalone() && canFull() ? '<button class="btn icon-btn fs-btn" data-fs aria-label="Plein écran" title="Plein écran">⛶</button>' : ''}
       <div class="res"><span title="Gemmes">✦ ${fmt(s.gems)}</span><span title="Pokédollars">₽ ${fmt(s.gold)}</span></div></header>${back !== false ? subHero(title) : ''}`;
@@ -4558,7 +4641,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     app.querySelector('[data-settings]').onclick = () => settingsScreen();
     const fsb = app.querySelector('[data-fs]'); if (fsb) fsb.onclick = toggleFullscreen;
     const sc = app.querySelector('.scenes'), tabs = [...app.querySelectorAll('[data-tab]')];
-    const show = (i, smooth) => { hubPage = i; sc.scrollTo({ left: i * sc.clientWidth, behavior: smooth ? 'smooth' : 'auto' }); tabs.forEach((t, k) => t.classList.toggle('on', k === i)); };
+    const show = (i, smooth) => { hubPage = i; Music.play(i === 1 ? 'route' : 'menu'); sc.scrollTo({ left: i * sc.clientWidth, behavior: smooth ? 'smooth' : 'auto' }); tabs.forEach((t, k) => t.classList.toggle('on', k === i)); };
     tabs.forEach(t => t.onclick = () => show(+t.dataset.tab, true));
     sc.addEventListener('scroll', () => { const i = Math.round(sc.scrollLeft / Math.max(1, sc.clientWidth)); if (i !== hubPage) { hubPage = i; tabs.forEach((t, k) => t.classList.toggle('on', k === i)); } }, { passive: true });
     requestAnimationFrame(() => show(hubPage, false));
@@ -5054,7 +5137,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const byUid = Object.fromEntries(b.units.map(u => [u.uid, u]));
     for (const w of b.waves || []) for (const u of w) byUid[u.uid] = u;
     const camp = spec.kind === 'campaign'; noBack();
-    Music.play(!spec.waves && (spec.boss || spec.enemies.some(e => e.boss)) ? 'boss' : 'battle');
+    Music.play(spec.kind === 'dungeon' ? 'cave' : spec.kind === 'tower' ? 'legend' : spec.boss || spec.enemies.some(e => e.boss) ? 'boss' : 'battle');
     if (camp && autoCamp) auto = true;
     const run = spec.kind === 'dungeon' && dungeonRun && dungeonRun.k === spec.k && dungeonRun.f === spec.f && dungeonRun.b === spec.b ? dungeonRun : null;
     if (run) auto = true;
