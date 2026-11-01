@@ -1263,6 +1263,10 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
   .sm2-card { gap: 3px; } .sm2-throw { min-height: 34px; }
 }
 .sm2-bolts { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+/* En-tête fixe des fenêtres longues (choix des runes) : le bouton Retour reste visible */
+.modal .modal-head { position: sticky; top: -16px; z-index: 5; display: flex; align-items: center; gap: 10px; margin: -16px -16px 10px; padding: 10px 16px; background: var(--panel2); border-bottom: 1px solid var(--line); border-radius: 16px 16px 0 0; }
+.modal .modal-head h3 { margin: 0; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal .modal-head .btn { flex: none; }
 
 </style>
 <div id="app"></div>
@@ -5242,7 +5246,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function runePicker(m, slot, back) {
     const s = S(), cur = m.runes[slot - 1] && s.runes.find(x => x.id === m.runes[slot - 1]);
     const list = s.runes.filter(r => r.slot === slot && r !== cur).sort((a, b) => b.rar - a.rar || b.lv - a.lv);
-    modal(`<h3>Emplacement ${ROMAN[slot - 1]} · ${esc(monName(m))}</h3>
+    modal(`<div class="modal-head"><button class="btn ghost small" data-close>‹ Retour</button><h3>Emplacement ${ROMAN[slot - 1]} · ${esc(monName(m))}</h3></div>
       ${cur ? runeCard(cur, `<button class="btn small" data-up="${cur.id}" ${cur.lv >= G.RUNE_MAX ? 'disabled' : ''}>Améliorer (${fmt(G.runeUpCost(cur))} ₽${G.runeUpChance(cur) < 100 ? ` · ${G.runeUpChance(cur)} %` : ''})</button><button class="btn small ghost" data-off>Retirer</button>`, m) : ''}
       <h4>${list.length ? 'Runes disponibles' : 'Aucune autre rune pour cet emplacement : explore la Forge des Runes.'}</h4>
       <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small primary" data-eq="${r.id}">${r.on ? 'Reprendre et équiper' : 'Équiper'}</button>`, m)).join('')}</div>
