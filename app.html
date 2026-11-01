@@ -2569,13 +2569,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     ['shards', 8, () => ({ n: 'Éclats runiques ×40', icon: 'shard', price: 20000, give: { shards: 40 } })],
     ['runeE', 6, () => ({ n: 'Rune Épique au hasard', icon: 'hard-stone', price: 18000, give: { runeGrade: 3 } })],
     ['runeL', 3, () => ({ n: 'Rune Légendaire au hasard', icon: 'hard-stone', price: 60000, give: { runeGrade: 4 } })],
-    ['mega', 2, () => ({ n: 'Méga-Cristal ×1', icon: 'mega-bracelet', price: 90000, give: { items: { megaCrystal: 1 } } })],
-    ['dyna', 2, () => ({ n: 'Particule Dynamax ×1', icon: 'mega-bracelet', price: 90000, give: { items: { dynamax: 1 } } })],
+    // Méga-Cristaux et Particules Dynamax ne s'achètent plus : succès « Prêt pour l'éveil » et Sanctuaire Ultime seulement.
     ['poke', 3, () => ({ n: 'Poké Ball ×1', ball: 'poke', price: 40000, give: { tickets: { normal: 1 } } })],
     ['super', 1, () => ({ n: 'Super Ball ×1', ball: 'super', price: 150000, give: { tickets: { chance: 1 } } })],
   ];
   function shopOffers() {
     const per = shopPeriod();
+    if (S.shop && S.shop.list && S.shop.list.some(o => o.k === 'mega' || o.k === 'dyna')) S.shop = null; // offres tirées avant le retrait
     if (!S.shop || S.shop.per !== per) {
       const rng = seeded([...per].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0), pool = SHOP_POOL.slice(), list = [];
       while (list.length < SHOP_SIZE && pool.length) {
