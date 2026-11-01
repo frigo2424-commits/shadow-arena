@@ -2681,7 +2681,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 
   // ---------- Invocation : 4 zones de tirage, chacune avec son ticket ----------
   // Normal 95 % Normaux/Rares · 4 % Épiques · 0,9 % Légendaires · 0,1 % Mythiques ; Élite 95 / 4,5 / 0,5 ;
-  // Légendaire 80 % Légendaires / 20 % Mythiques ; Chance : 25 Pokémon de la semaine, tous à la même chance.
+  // Légendaire 80 % Légendaires / 20 % Mythiques ; Chance : 25 Pokémon du jour (dont 1 Légendaire), tous à la même chance.
   const BANNERS = {
     normal: { n: 'Invocation Poké Ball', ticket: 'normal', ball: 'poke', rates: [['N', 62], ['R', 33], ['E', 4], ['L', 0.7], ['F', 0.2], ['M', 0.1]], gems: 100 },
     chance: { n: 'Invocation Super Ball', ticket: 'chance', ball: 'super', weekly: true },
@@ -2693,20 +2693,16 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const SHINY = 0.01;
   // Chromatique : +20 % de stats, et en combat +10 % de dégâts et le premier statut subi bloqué (éclat chromatique).
   const SHINY_BONUS = 1.2;
-  // Liste de la semaine (la même pour tous) : 25 formes de base tirées avec une graine = numéro de semaine.
-  function weekKey(d) { d = d || new Date(); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() * 100 + Math.ceil(((t - y) / 86400000 + 1) / 7); }
+  // Liste du jour (la même pour tous) : 25 formes de base tirées avec une graine = numéro du jour, renouvelée à minuit.
+  function weekKey(d) { d = d || new Date(); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() * 100 + Math.ceil(((t - y0) / 864e5 + 1) / 7); }
+  const dayKey = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
   function weeklyList() {
-    let seed = weekKey() * 2654435761 >>> 0;
+    let seed = (dayKey() * 2654435761 + 97) >>> 0;
     const r = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    // Pas de Mythique, et au plus un Légendaire dans la liste.
-    const all = [...A.POOL.N, ...A.POOL.R, ...A.POOL.E, ...A.POOL.L].sort((a, b) => a - b);
-    const out = []; let leg = 0;
-    while (out.length < 25) {
-      const x = all[Math.floor(r() * all.length)];
-      if (out.includes(x) || (A.RARITY[x] === 'L' && leg >= 1)) continue;
-      if (A.RARITY[x] === 'L') leg++;
-      out.push(x);
-    }
+    // Pas de Mythique ; exactement un Légendaire garanti chaque jour, puis 24 Normaux, Rares ou Épiques.
+    const L = A.POOL.L.slice().sort((a, b) => a - b), rest = [...A.POOL.N, ...A.POOL.R, ...A.POOL.E].sort((a, b) => a - b);
+    const out = [L[Math.floor(r() * L.length)]];
+    while (out.length < 25) { const x = rest[Math.floor(r() * rest.length)]; if (!out.includes(x)) out.push(x); }
     return out;
   }
   function rollBanner(k) {
@@ -2720,13 +2716,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Garanties (pity), une par zone d'invocation : le compteur avance à chaque invocation et repart à zéro
   // quand la rareté visée sort (par chance ou par la garantie).
   //  Poké Ball : un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 sans Légendaire.
-  //  Super Ball : le Pokémon le plus rare de la semaine au plus tard à la 40e invocation sans lui.
+  //  Super Ball : le Légendaire du jour au plus tard à la 40e invocation sans lui.
   //  Hyper Ball : un Légendaire au plus tard à la 30e invocation sans Légendaire.
   //  Master Ball : un Mythique au plus tard à la 6e invocation sans Mythique.
   const PITY_FIRST = 20, PITY_MYTH = 6;
   const PITY = { normal: 80, chance: 40, elite: 30, legend: PITY_MYTH };
   const RANKS = A.RARITY_ORDER;
-  // Meilleur Pokémon de la liste de la semaine (cible de la garantie Super Ball).
+  // Meilleur Pokémon de la liste du jour (cible de la garantie Super Ball : son Légendaire).
   const weeklyBest = () => weeklyList().slice().sort((a, b) => RANKS.indexOf(A.RARITY[b]) - RANKS.indexOf(A.RARITY[a]) || A.bst(A.sp(b)) - A.bst(A.sp(a)))[0];
   function pityState() {
     const P = S.pity = S.pity || {};
@@ -3367,7 +3363,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   root.ArenaGame = {
     TEAM_SIZE, CHAPTERS, get S() { return S; }, load, save, start, starterChoices, snapshot, restore, exportCode, importCode, setOnSave(fn) { onSave = fn; },
     statsOf, powerOf, teamPower, expNeed, gainExp, feed, CANDIES, extractPreview, extractExp, EXTRACT_KEEP, evolveCost, canEvolve, evolve, canAscend, ascend, ULT_COST, stageIndex,
-    summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
+    summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, dayKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
     SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
@@ -5800,22 +5796,22 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const BALL_OF = { N: 'poke', R: 'poke', E: 'super', L: 'hyper', F: 'master', M: 'master' };
   const BALL_N = { poke: 'Poké Ball', super: 'Super Ball', hyper: 'Hyper Ball', master: 'Master Ball' };
   const ballHtml = (b, cls) => `<div class="ball ball-${b} ${cls || ''}"><i class="b-top"></i><i class="b-deco"></i><i class="b-band"></i><i class="b-btn"></i></div>`;
-  const ratesTxt = bn => bn.weekly ? '25 Pokémon de la semaine · 4 % chacun' : bn.rates.map(([k, p]) => `<span style="color:${rar(k).color}">${rar(k).n} ${String(p).replace('.', ',')} %</span>`).join(' · ');
+  const ratesTxt = bn => bn.weekly ? '25 Pokémon du jour, dont 1 Légendaire · 4 % chacun' : bn.rates.map(([k, p]) => `<span style="color:${rar(k).color}">${rar(k).n} ${String(p).replace('.', ',')} %</span>`).join(' · ');
   // Compteur de garantie affiché sur la zone d'invocation.
   function pityHtml(k) {
     const p = G.pityInfo(k); if (!p) return '';
     const n = `<b class="pity-n">${p.left}</b> invocation${p.left > 1 ? 's' : ''}`;
-    const what = p.sid ? `<b style="color:${rar(p.rar).color}">${esc(sp(p.sid).n)}</b> (meilleur de la semaine) garanti d’ici ${n}`
+    const what = p.sid ? `<b style="color:${rar(p.rar).color}">${esc(sp(p.sid).n)}</b> (Légendaire du jour) garanti d’ici ${n}`
       : `<b style="color:${rar(p.rar).color}">${rar(p.rar).n} garanti</b> d’ici ${n}${p.first ? ' · offre de départ' : ''}`;
     return `<div class="pity"><span class="small">${what}</span><div class="pity-bar"><i style="width:${(p.total - p.left) / p.total * 100}%;--pc:${rar(p.rar).color}"></i></div><span class="pity-c small muted">${p.total - p.left} / ${p.total}</span></div>`;
   }
 
   // Invocation : 4 scènes plein écran à faire défiler (glisser de gauche à droite), une par Ball.
-  // Poké Ball : hautes herbes ; Super Ball : lac de la semaine ; Hyper Ball : tempête dorée ; Master Ball : faille cosmique.
+  // Poké Ball : hautes herbes ; Super Ball : lac du jour ; Hyper Ball : tempête dorée ; Master Ball : faille cosmique.
   let smPanel = 0;
   const SM_SCENES = {
     normal: { biome: 'plain', title: 'Les Hautes Herbes', kicker: 'Invocation commune', line: 'Lance ta Poké Ball dans les hautes herbes… qui sait ce qui s’y cache ?', sil: 19 },
-    chance: { biome: 'lake', title: 'Le Lac de la Semaine', kicker: 'Invocation de la semaine', line: '25 Pokémon fréquentent le lac cette semaine. Le meilleur d’entre eux t’attend.', sil: null },
+    chance: { biome: 'lake', title: 'Le Lac du Jour', kicker: 'Invocation du jour', line: '25 Pokémon fréquentent le lac aujourd’hui, dont un Légendaire. Nouvelle liste chaque jour à minuit.', sil: null },
     elite: { biome: 'storm', title: 'La Tempête Dorée', kicker: 'Invocation d’élite', line: 'Au cœur de l’orage, les Épiques et les Légendaires répondent à l’appel de l’Hyper Ball.', sil: 6 },
     legend: { biome: 'psychic', title: 'La Faille Cosmique', kicker: 'Invocation légendaire', line: 'La Master Ball ouvre une faille vers les Légendaires, Fabuleux et Mythiques.', sil: 493 },
   };
@@ -6080,7 +6076,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Expérience', '<p>Les combats donnent de l’expérience à l’équipe. Les bonbons S, M, L (Grotte Gourmande) en donnent beaucoup, contre quelques Pokédollars.</p>')}
       ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Amélioration de +0 à +${G.RUNE_MAX}, de plus en plus chère, avec un risque d’échec à partir de +7 (les Pokédollars sont perdus en cas d’échec). Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
       ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : la suite de la campagne dans les mêmes chapitres, sans retour en arrière de difficulté. Le Difficile (niveaux 76 à 100) commence un cran au-dessus de la fin de la Normale, l’Enfer (niveau 100, formes ultimes) au-dessus de la fin du Difficile ; il se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15. Récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Chaque mode s’ouvre quand le précédent est terminé.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 5 donjons de 10 sous-niveaux, chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (Méga-Cristaux, Particules Dynamax, Zygarde corrompu). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
-      ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b>, le Pokémon le plus rare de la semaine au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au 6e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
+      ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b> (25 Pokémon du jour, dont 1 Légendaire, liste renouvelée à minuit), le Légendaire du jour au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au 6e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
     </div>`;
     bindBack(settingsScreen);
     app.querySelector('[data-chart]').onclick = () => typeChartScreen(rulesScreen);
