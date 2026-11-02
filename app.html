@@ -2296,7 +2296,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     let single = forced || (choice.target && choice.target.alive && choice.target.side !== u.side && canTarget(b, u, choice.target) ? choice.target : targetsFor(b, u)[0]);
     if (sk.aim && sk.aim !== 'spread' && !forced) single = aimTarget(b, u, sk) || single;
     // Soins réduits de 20 % : un soin ne doit pas effacer à lui seul plusieurs attaques.
-    const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * HEAL_SCALE * (u.role === 'heal' ? 1.2 : 1));
+    const hb = 1 + ((u.st && u.st.healp) || 0) / 100; // ensemble de runes Grâce
+    const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * HEAL_SCALE * (u.role === 'heal' ? 1.2 : 1) * hb);
     const heal = (t, pct) => {
       const h = Math.min(t.maxHp - t.hp, healAmt(t, pct));
       t.hp += h; log.push({ k: 'heal', who: t.uid, amount: h });
@@ -2377,7 +2378,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         if (t.alive && sk.apPush) pushAp(t, sk.apPush, log);
         if (t.alive && sk.flinch && rand() * 100 < sk.flinch) { t.ap = Math.max(0, t.ap - 300); log.push({ k: 'msg', txt: `${t.name} recule !` }); }
       }
-      if (sk.allyHeal) { const a = alive(b, u.side).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { const h = Math.min(a.maxHp - a.hp, Math.round(a.maxHp * sk.allyHeal / 100)); a.hp += h; log.push({ k: 'heal', who: a.uid, amount: h }); } }
+      if (sk.allyHeal) { const a = alive(b, u.side).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { const h = Math.min(a.maxHp - a.hp, Math.round(a.maxHp * sk.allyHeal / 100 * hb)); a.hp += h; log.push({ k: 'heal', who: a.uid, amount: h }); } }
     }
     postEffects(b, u, sk, single, log);
     if (sk.guard && u.alive) addBuff(u, 'def', 1, log, 0, u);
@@ -2399,6 +2400,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 
   // Effets complémentaires communs à toutes les compétences.
   function postEffects(b, u, sk, single, log) {
+    const hb = 1 + ((u.st && u.st.healp) || 0) / 100; // ensemble de runes Grâce
     const allies = alive(b, u.side), enemies = foes(b, u);
     const lowest = () => allies.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
     const hitAll = sk.target === 'all' || sk.target === 'debuffAll';
@@ -2412,7 +2414,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       let any = false; for (const e of list) if (e.alive && e.buffs.some(x => x.mult > 1)) { e.buffs = e.buffs.filter(x => x.mult < 1); any = true; }
       if (any) log.push({ k: 'msg', txt: 'Les bonus adverses sont dissipés !' });
     }
-    if (sk.allyHeal) { const a = lowest(); if (a) { const h = Math.min(a.maxHp - a.hp, Math.round(a.maxHp * sk.allyHeal / 100)); a.hp += h; log.push({ k: 'heal', who: a.uid, amount: h }); } }
+    if (sk.allyHeal) { const a = lowest(); if (a) { const h = Math.min(a.maxHp - a.hp, Math.round(a.maxHp * sk.allyHeal / 100 * hb)); a.hp += h; log.push({ k: 'heal', who: a.uid, amount: h }); } }
     if (sk.cleanseLow) { const a = lowest(); if (a && (a.ail || a.buffs.some(x => x.mult < 1))) { a.ail = null; a.buffs = a.buffs.filter(x => x.mult > 1); log.push({ k: 'msg', txt: `${a.name} est purifié.` }); } }
     if (sk.shield && sk.target !== 'heal' && u.alive) {
       for (const a of allies) { a.shield = Math.max(a.shield, Math.round(u.maxHp * sk.shield / 100)); a.shieldTurns = 2; }
@@ -2421,7 +2423,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (sk.shieldSelf && u.alive) { u.shield = Math.max(u.shield, Math.round(u.maxHp * sk.shieldSelf / 100)); u.shieldTurns = 2; }
     if (sk.regen) {
       const list = (sk.regenTo === 'team' ? allies : sk.regenTo === 'self' ? [u] : [lowest()]).filter(a => a && a.alive);
-      for (const a of list) (a.hots = a.hots || []).push({ pct: sk.regen, turns: 3, src: u.uid });
+      for (const a of list) (a.hots = a.hots || []).push({ pct: sk.regen * hb, turns: 3, src: u.uid });
       if (list.length) log.push({ k: 'msg', txt: `Régénération ${list.length > 1 ? 'pour l’équipe' : 'pour ' + list[0].name} !` });
     }
     if (sk.revive) {
@@ -2531,6 +2533,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     focus: { n: 'Focus', need: 2, stat: 'acc', v: 15, d: '+15 % Précision (toucher, chances de statut)' },
     tenacite: { n: 'Ténacité', need: 2, stat: 'res', v: 15, d: '+15 % Résistance aux statuts' },
     elan: { n: 'Élan', need: 2, stat: 'spep', v: 8, d: '+8 % Vitesse' },
+    grace: { n: 'Grâce', need: 4, stat: 'healp', v: 30, d: '+30 % de soins prodigués : soins, régénération et soins d’équipe' },
   };
   const RUNE_RARITY = [null, { n: 'Normale', color: '#a7b1c6', subs: 0, m: 1 }, { n: 'Rare', color: '#3fa7ff', subs: 1, m: 1.1 }, { n: 'Épique', color: '#b56cff', subs: 2, m: 1.2 },
     { n: 'Légendaire', color: '#ffbd3a', subs: 3, m: 1.32 }, { n: 'Fabuleuse', color: '#5ee8ff', subs: 4, m: 1.38 }, { n: 'Mythique', color: '#ff4fa3', subs: 4, m: 1.45 }];
@@ -2650,7 +2653,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const st = { hp: Math.floor((2 * b[0] + 31) * L / 100) + L + 10 };
     ['atk', 'def', 'spa', 'spd', 'spe'].forEach((k, i) => { st[k] = Math.floor((2 * b[i + 1] + 31) * L / 100) + 5; });
     st.crit = 15; st.critd = 150; st.acc = 0; st.res = 0; st.leech = 0;
-    const add = { hp: 0, atk: 0, def: 0, spe: 0, hpp: 0, atkp: 0, defp: 0, spep: 0, crit: 0, critd: 0, acc: 0, res: 0, leech: 0 };
+    const add = { hp: 0, atk: 0, def: 0, spe: 0, hpp: 0, atkp: 0, defp: 0, spep: 0, crit: 0, critd: 0, acc: 0, res: 0, leech: 0, healp: 0 };
     const runes = (mon.runes || []).map(id => id && S.runes.find(r => r.id === id)).filter(Boolean);
     for (const r of runes) { add[r.main] += mainValue(r); for (const x of r.subs) add[x.s] += x.v; }
     const sets = {}; for (const r of runes) sets[r.set] = (sets[r.set] || 0) + 1;
@@ -2659,7 +2662,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     for (const k of ['atk', 'spa']) st[k] = Math.round((st[k] + add.atk) * (1 + add.atkp / 100));
     for (const k of ['def', 'spd']) st[k] = Math.round((st[k] + add.def) * (1 + add.defp / 100));
     st.spe = Math.round((st.spe + add.spe) * (1 + add.spep / 100));
-    st.crit += add.crit; st.critd += add.critd; st.acc += add.acc; st.res += add.res; st.leech += add.leech;
+    st.crit += add.crit; st.critd += add.critd; st.acc += add.acc; st.res += add.res; st.leech += add.leech; st.healp = add.healp;
     // Bonus d'évolution sur une stat.
     for (const [k, v] of Object.entries(A.evoStatBonus(mon.sid))) st[k] = Math.round(st[k] * (1 + v / 100));
     const m = (mon.shiny ? SHINY_BONUS : 1) * ((opts && opts.mult) || 1) * A.statMult(mon.sid) * ({ F: 1.06, M: 1.1 }[A.rarOf(mon) !== A.RARITY[mon.sid] ? A.rarOf(mon) : ''] || 1) * (A.heroBoost ? A.heroBoost(mon) : 1) // forme ultime promue (Fabuleux +6 %, Mythique +10 %) ; formes héroïques +15 %
@@ -3229,7 +3232,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     assaut: { n: 'Forge de l’Assaut', sets: ['fureur', 'lame'], line: [137, 233, 474], boss: 890, bossN: 'Éthernatos', biome: 'volcano', mult: 0.75, d: 'Porygon, Porygon2 et Porygon-Z ; Éthernatos corrompu en est le cœur.' },
     tempete: { n: 'Forge de la Tempête', sets: ['celerite', 'elan', 'focus'], line: [81, 82, 462], boss: 386, bossN: 'Deoxys', biome: 'storm', mult: 0.84, d: 'Magnéti, Magnéton et Magnézone ; Deoxys corrompu y file à la vitesse de l’éclair.' },
     bastion: { n: 'Forge du Bastion', sets: ['vitalite', 'rempart', 'tenacite'], line: [436, 437, 437], boss: 889, bossN: 'Zamazenta', biome: 'cave', mult: 0.75, d: 'Archéomire et Archéodong ; Zamazenta corrompu garde le bouclier ancestral.' },
-    sang: { n: 'Forge du Sang', sets: ['vampire', 'destruction'], line: [41, 42, 169], boss: 717, bossN: 'Yveltal', biome: 'ghost', mult: 0.66, d: 'Nosferapti, Nosferalto et Nostenfer ; Yveltal corrompu y draine la vie.' },
+    sang: { n: 'Forge du Sang', sets: ['vampire', 'destruction', 'grace'], line: [41, 42, 169], boss: 717, bossN: 'Yveltal', biome: 'ghost', mult: 0.66, d: 'Nosferapti, Nosferalto et Nostenfer ; Yveltal corrompu y draine la vie.' },
   };
   const RUNE_FORGE_ORDER = ['assaut', 'tempete', 'bastion', 'sang'];
   const forgeOf = b => RUNE_FORGES[b] || RUNE_FORGES.assaut;
