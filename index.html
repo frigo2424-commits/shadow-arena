@@ -2898,11 +2898,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const BALL_CUT = { normal: 0.35, chance: 0.5, elite: 0.5, legend: 0.5 }, GEM_CUT = 0.6;
   for (const a of ACHIEVEMENTS) {
     const carry = {};
-    a.tiers = a.tiers.map(([n, r, l]) => {
+    // Réduction étalée (les fractions de Balls passent au palier suivant), mais aucun palier ne reste vide : un palier
+    // sans rien reçoit d'avance la Ball la plus entamée, et le dernier palier de la série solde les restes.
+    const last = a.tiers.length - 1;
+    a.tiers = a.tiers.map(([n, r, l], idx) => {
       const t = {};
       if (r.exact) return [n, { tickets: Object.assign({}, r.tickets), gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5, items: r.items }, l];
-      for (const [k, v] of Object.entries(r.tickets || {})) { carry[k] = (carry[k] || 0) + v * (BALL_CUT[k] || 1); const g = Math.floor(carry[k] + 1e-9); if (g) { t[k] = g; carry[k] -= g; } }
-      return [n, { tickets: t, gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5 }, l];
+      for (const [k, v] of Object.entries(r.tickets || {})) { carry[k] = (carry[k] || 0) + v * (BALL_CUT[k] || 1); const g = Math.floor(carry[k] + 1e-9); if (g > 0) { t[k] = g; carry[k] -= g; } }
+      const gems = Math.round((r.gems || 0) * GEM_CUT / 5) * 5;
+      if (idx === last) for (const k in carry) if (carry[k] >= 0.3) { t[k] = (t[k] || 0) + 1; carry[k] = 0; }
+      if (!gems && !Object.keys(t).length) { const k = Object.keys(carry).sort((x, y) => carry[y] - carry[x])[0]; if (k) { t[k] = 1; carry[k] -= 1; } }
+      return [n, { tickets: t, gems }, l];
     });
   }
   const achName = a => typeof a.n === 'function' ? a.n() : a.n;
