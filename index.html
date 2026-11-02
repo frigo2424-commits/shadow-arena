@@ -1286,6 +1286,8 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .rune-fit.f3 { color: #ffd34a; background: rgba(255,211,74,.14); }
 .role-rune-help { margin: 4px 0 8px; opacity: .9; }
 .chips-lbl { align-self: center; margin-right: 4px; }
+.pick-filters { margin: 8px 0 4px; }
+.pick-filters .chips { margin: 4px 0; }
 
 </style>
 <div id="app"></div>
@@ -5390,17 +5392,42 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const old = m.runes[r.slot - 1] && s.runes.find(x => x.id === m.runes[r.slot - 1]); if (old) old.on = null;
     m.runes[r.slot - 1] = r.id; r.on = m.uid; G.save();
   }
-  function runePicker(m, slot, back) {
+  // Filtres et tri de la fenêtre de choix de rune (ensemble, stat principale, rôle visé, non équipées, ordre).
+  const pickF = { set: '', main: '', free: false, sort: 'fit', role: '' };
+  const PICK_SORTS = [['fit', 'Adéquation'], ['rar', 'Qualité'], ['lv', 'Niveau']];
+  function runePicker(m, slot, back, keep) {
     const s = S(), cur = m.runes[slot - 1] && s.runes.find(x => x.id === m.runes[slot - 1]);
-    const role = A.roleOf(m.sid), list = s.runes.filter(r => r.slot === slot && r !== cur).sort((a, b) => fitLv(b, role) - fitLv(a, role) || b.rar - a.rar || b.lv - a.lv || G.runeFit(b, role) - G.runeFit(a, role));
+    if (!keep) { pickF.role = A.roleOf(m.sid); pickF.main = ''; }
+    const role = pickF.role, mains = slot % 2 === 0 ? G.SLOT_MAIN[slot] : [];
+    const all = s.runes.filter(r => r.slot === slot && r !== cur);
+    const sorters = {
+      fit: (a, b) => fitLv(b, role) - fitLv(a, role) || b.rar - a.rar || b.lv - a.lv || G.runeFit(b, role) - G.runeFit(a, role),
+      rar: (a, b) => b.rar - a.rar || b.lv - a.lv || G.runeFit(b, role) - G.runeFit(a, role),
+      lv: (a, b) => b.lv - a.lv || b.rar - a.rar || G.runeFit(b, role) - G.runeFit(a, role),
+    };
+    const list = all.filter(r => (!pickF.set || r.set === pickF.set) && (!pickF.main || r.main === pickF.main) && (!pickF.free || !r.on)).sort(sorters[pickF.sort]);
+    const sets = [...new Set(all.map(r => r.set))].sort((a, b) => G.ROLE_RUNES[role].sets.indexOf(b) < 0 ? -1 : G.ROLE_RUNES[role].sets.indexOf(a) < 0 ? 1 : G.ROLE_RUNES[role].sets.indexOf(a) - G.ROLE_RUNES[role].sets.indexOf(b));
+    const chip = (attr, val, on, label) => `<button class="chip ${on ? 'on' : ''}" ${attr}="${val}">${label}</button>`;
     modal(`<div class="modal-head"><button class="btn ghost small" data-close>‹ Retour</button><h3>Emplacement ${ROMAN[slot - 1]} · ${esc(monName(m))}</h3></div>
-      ${cur ? runeCard(cur, `<button class="btn small" data-up="${cur.id}" ${cur.lv >= G.RUNE_MAX ? 'disabled' : ''}>Améliorer (${fmt(G.runeUpCost(cur))} ₽${G.runeUpChance(cur) < 100 ? ` · ${G.runeUpChance(cur)} %` : ''})</button><button class="btn small ghost" data-off>Retirer</button>`, m) : ''}
-      <h4>${list.length ? 'Runes disponibles · les plus adaptées au rôle d’abord' : 'Aucune autre rune pour cet emplacement : explore la Forge des Runes.'}</h4>${list.length ? roleRuneTxt(role) : ''}
+      ${cur ? runeCard(cur, `<button class="btn small" data-up="${cur.id}" ${cur.lv >= G.RUNE_MAX ? 'disabled' : ''}>Améliorer (${fmt(G.runeUpCost(cur))} ₽${G.runeUpChance(cur) < 100 ? ` · ${G.runeUpChance(cur)} %` : ''})</button><button class="btn small ghost" data-off>Retirer</button>`, m, role) : ''}
+      ${all.length ? `<div class="pick-filters">
+        <div class="chips"><span class="muted small chips-lbl">Trier :</span>${PICK_SORTS.map(([k, n]) => chip('data-psort', k, pickF.sort === k, n)).join('')}${chip('data-pfree', 1, pickF.free, 'Non équipées')}</div>
+        <div class="chips"><span class="muted small chips-lbl">Rôle :</span>${A.ROLE_ORDER.map(k => chip('data-prole', k, role === k, `${A.ROLES[k].i} ${esc(A.ROLES[k].n)}`)).join('')}</div>
+        <div class="chips"><span class="muted small chips-lbl">Ensemble :</span>${chip('data-pset', '', !pickF.set, 'Tous')}${sets.map(k => chip('data-pset', k, pickF.set === k, esc(G.RUNE_SETS[k].n))).join('')}</div>
+        ${mains.length ? `<div class="chips"><span class="muted small chips-lbl">Stat principale :</span>${chip('data-pmain', '', !pickF.main, 'Toutes')}${mains.map(k => chip('data-pmain', k, pickF.main === k, esc(G.STATS_FR[k]))).join('')}</div>` : ''}
+      </div>` : ''}
+      <h4>${!all.length ? 'Aucune autre rune pour cet emplacement : explore la Forge des Runes.' : list.length ? `Runes disponibles (${list.length})` : 'Aucune rune avec ces filtres.'}</h4>${list.length ? roleRuneTxt(role) : ''}
       <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small primary" data-eq="${r.id}">${r.on ? 'Reprendre et équiper' : 'Équiper'}</button>`, m, role)).join('')}</div>
       <div class="row end"><button class="btn ghost" data-close>Fermer</button></div>`, (bg, close) => {
+      const again = () => { const md0 = bg.querySelector('.modal'), y = md0.scrollTop, y2 = bg.scrollTop; close(); runePicker(m, slot, back, true); const nb = modalRoot.lastElementChild; if (nb) { nb.scrollTop = y2; const md = nb.querySelector('.modal'); if (md) md.scrollTop = y; } };
+      bg.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { pickF.sort = b.dataset.psort; again(); });
+      bg.querySelectorAll('[data-prole]').forEach(b => b.onclick = () => { pickF.role = b.dataset.prole; again(); });
+      bg.querySelectorAll('[data-pset]').forEach(b => b.onclick = () => { pickF.set = b.dataset.pset; again(); });
+      bg.querySelectorAll('[data-pmain]').forEach(b => b.onclick = () => { pickF.main = b.dataset.pmain; again(); });
+      bg.querySelectorAll('[data-pfree]').forEach(b => b.onclick = () => { pickF.free = !pickF.free; again(); });
       bg.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { equip(m, s.runes.find(r => r.id === b.dataset.eq)); close(); back(); });
       const off = bg.querySelector('[data-off]'); if (off) off.onclick = () => { cur.on = null; m.runes[slot - 1] = null; G.save(); close(); back(); };
-      bg.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { const lv = cur.lv, c = G.runeUpCost(cur), r = G.upgradeRune(cur); upToast(r, lv, c); close(); back(); runePicker(m, slot, back); });
+      bg.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { const lv = cur.lv, c = G.runeUpCost(cur), r = G.upgradeRune(cur); upToast(r, lv, c); close(); back(); runePicker(m, slot, back, true); });
     });
   }
   let runeFilter = { slot: 0, set: '', free: false, role: '' };
