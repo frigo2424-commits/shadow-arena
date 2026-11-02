@@ -1367,15 +1367,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const ROLE_OVERRIDE = { 468: 'heal', 134: 'heal', 671: 'heal', // Togekiss, Aquali, Florges
     // Légendaires et Fabuleux : rôle iconique plutôt que « tank » par défaut (stats équilibrées).
     249: 'heal', 245: 'heal', 492: 'heal', // Lugia (gardien des mers qui régénère l'équipe), Suicune (purifie), Shaymin (Gracidée)
-    250: 'dps', 888: 'dps', 493: 'dps', 494: 'dps', 1020: 'dps', 160: 'dps', 376: 'dps', // Ho-Oh, Zacian, Arceus, Victini, Feu-Perçant, Aligatueur, Métalosse
-    385: 'sup', 380: 'sup', 490: 'sup', 481: 'sup', 1016: 'sup', 788: 'sup', // Jirachi, Latias, Manaphy, Créfollet, Favianos, Tokopisco
+    888: 'dps', 493: 'dps', 494: 'dps', 1020: 'dps', 160: 'dps', // Zacian, Arceus, Victini, Feu-Perçant, Aligatueur
+    385: 'sup', 380: 'sup', 490: 'sup', 481: 'sup', 1016: 'sup', // Jirachi, Latias, Manaphy, Créfollet, Favianos
     648: 'ctrl', 480: 'ctrl', 144: 'ctrl', 1025: 'ctrl', // Meloetta (chant), Créhelf (amnésie), Artikodin (gel), Pêchaminus (chaînes)
     // Répartition équitable des rôles chez les Légendaires, Fabuleux et Mythiques (environ 50 % d'attaquants).
     260: 'tank', 383: 'tank', 791: 'tank', 486: 'tank', 895: 'tank', 992: 'tank', 896: 'tank', 485: 'tank', 787: 'tank', // Laggron, Groudon, Solgaleo, Regigigas, Regidrago, Paume-de-Fer, Blizzeval, Heatran, Tokotoro
     491: 'ctrl', 483: 'ctrl', 646: 'ctrl', 243: 'ctrl', 145: 'ctrl', 792: 'ctrl', 720: 'ctrl', 386: 'ctrl', 905: 'ctrl', 642: 'ctrl', 1015: 'ctrl', // Darkrai, Dialga, Kyurem, Raikou, Électhor, Lunala, Hoopa, Deoxys, Amovénus, Fulguris, Fortusimia
-    801: 'sup', 716: 'sup', 785: 'sup', 786: 'sup', 641: 'sup', // Magearna, Xerneas, Tokorico, Tokopiyon, Boréas
+    785: 'sup', 786: 'sup', 641: 'sup', // Tokorico, Tokopiyon, Boréas
     730: 'heal', 893: 'heal', // Oratoria, Zarude
     // Palier Légendaire (starters, pseudo-légendaires) : moins d'attaquants purs, des contrôleurs et des soutiens iconiques.
+    // Rééquilibrage des rôles rares : plus de soigneurs et de contrôleurs chez les Légendaires, plus de tanks chez les
+    // Fabuleux, plus de soigneurs chez les Mythiques.
+    149: 'heal', 254: 'heal', 991: 'heal', // Dracolosse (sauveteur des mers), Jungko (Synthèse), Hotte-de-Fer (Cadeau)
+    887: 'ctrl', 658: 'ctrl', 376: 'ctrl', // Lanssorien (spectre), Amphinobi (ninja), Métalosse (psychique)
+    721: 'tank', 801: 'tank', // Volcanion (vapeur blindée), Magearna (Pokémon artificiel blindé)
+    716: 'heal', 250: 'heal', 788: 'heal', // Xerneas (Pokémon de la vie), Ho-Oh (Renaissance), Tokopisco (gardien des eaux)
     727: 'tank', 248: 'tank', // Félinferno (Intimidation), Tyranocif (tank offensif : encaisse, frappe et renvoie les coups)
     655: 'ctrl', 987: 'ctrl', 724: 'ctrl', // Goupelin (illusions psychiques), Flotte-Mèche (frayeur), Archéduc (Tisse Ombre)
     812: 'sup', 914: 'sup', 637: 'sup', 911: 'sup' }; // Gorythmic (tambour), Palmaval (danse), Pyrax (Papillodanse), Flâmigator (Chant Flamboyant)
@@ -2047,7 +2053,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
 </script>
 <script>
 // Généré par tools/arena-power.js : corrections de stats par lignée (racine) mesurées par simulation.
-(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,64:0.940,66:0.884,77:0.940,84:0.831,95:1.060,100:0.781,114:1.060,116:0.940,123:0.884,127:0.940,128:0.831,177:0.940,190:0.940,193:0.884,200:0.884,214:0.940,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.884,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,418:0.884,427:0.940,431:0.734,436:1.124,441:0.940,449:1.060,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,524:1.060,527:0.734,529:0.940,532:0.940,539:0.940,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.831,585:0.940,595:0.831,597:1.262,607:0.940,610:0.940,615:0.884,616:0.831,619:0.940,669:0.940,676:0.734,677:0.831,694:0.940,712:1.060,714:0.940,741:0.940,742:0.831,744:0.884,757:0.884,766:0.940,777:0.884,779:0.940,803:0.884,805:1.191,837:1.124,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,932:1.060,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.060,967:0.884,973:0.884,974:0.940,977:1.124,978:0.940,986:0.940,988:0.831,989:0.940,994:0.884,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
+(function (root) { root.ArenaData.STAT_FIX = {19:0.884,23:0.940,29:1.124,48:0.884,50:0.940,56:0.884,58:0.940,60:0.940,66:0.884,77:0.940,84:0.831,95:1.060,100:0.781,114:1.060,116:0.940,123:0.884,127:0.940,128:0.831,177:0.940,190:0.940,193:0.884,200:0.884,214:0.940,215:0.884,216:0.940,220:0.884,228:0.940,231:1.060,234:0.940,236:0.884,238:0.940,239:0.940,241:0.940,280:0.884,283:0.940,287:0.781,298:1.338,314:0.884,328:0.884,396:0.884,418:0.884,427:0.940,431:0.734,436:1.124,441:0.940,449:1.060,453:0.940,479:1.124,506:0.940,509:0.940,511:0.884,513:0.940,519:0.884,524:1.060,527:0.734,529:0.940,532:0.940,539:0.940,540:0.884,543:0.884,546:0.884,548:0.940,550:0.884,551:0.884,554:0.884,566:0.884,585:0.940,595:0.831,597:1.262,607:0.940,610:0.940,615:0.884,616:0.831,619:0.940,669:0.940,676:0.734,677:0.831,694:0.940,714:0.940,741:0.940,742:0.831,744:0.884,757:0.884,764:0.940,766:0.940,777:0.884,779:0.940,803:0.884,805:1.191,837:1.124,840:1.060,846:0.831,870:0.884,874:0.940,876:0.940,877:0.884,880:0.940,921:0.831,924:0.781,932:1.060,942:0.940,944:0.831,955:0.884,960:0.940,962:0.884,963:1.060,967:0.884,973:0.884,974:0.940,977:1.124,986:0.940,988:0.831,989:0.940,994:0.940,995:0.940,1010:0.831,1022:0.831}; })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
@@ -3125,7 +3131,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // courbe (tools/arena-flat.js). Les pics venaient du lissage, qui mélange des équipes de 4, 5 et 6 adversaires.
   const STAGE_FLAT = globalThis.NO_FLAT ? null : [1,1,0.988,0.993,0.929,1,1,1,0.881,1,1,0.956,0.87,0.821,1,1,0.893,0.842,0.945,1,1,1,0.993,0.99,1,1,1,0.991,0.874,1,1,1,0.645,0.823,1,0.935,0.822,1,0.791,1,1,0.837,0.648,1,1,0.682,0.872,1,0.838,1,1,1,0.804,0.876,1,0.877,0.976,1,0.742,1,1,0.79,0.714,1,0.977,0.995,0.885,1,0.851,1,1,0.81,0.73,1,1,0.803,1,1,0.803,1,1,0.995,0.817,1,0.832,0.874,1,0.953,0.615,1,1,0.823,0.822,1,0.863,0.822,1,1,0.693,1,1,0.865,0.909,0.952,1,1,0.983,0.91,0.99,1,1,0.779,0.793,1,0.926,0.965,1,0.969,0.88,1];
   // Retouches manuelles (toutes difficultés), mesurées par parties simulées : 3-1, boss 9-10, 11-7 (Archéduc et Flâmigator), 11-9, 12-5.
-  const STAGE_EASE = { '2-0': 0.9, '8-9': 0.88, '10-6': 0.84, '10-8': 0.92, '11-4': 0.92 };
+  const STAGE_EASE = { '2-0': 0.9, '8-9': 0.88, '10-6': 0.84, '10-8': 0.92, '11-4': 0.92, '11-8': 0.84 };
   const diffMult = d => DIFFS[d].mult; // Normale seulement : Difficile, Enfer et Challenge suivent CURVE
   const campaignDone = d => !!prog(d)[(CHAPTERS.length - 1) + '-' + (CHAPTER_STAGES - 1)];
   // Progression (étoiles par étape) d'une difficulté.
