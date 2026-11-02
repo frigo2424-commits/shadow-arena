@@ -1797,6 +1797,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     regen: ['Source', 'Sève', 'Rosée'], dispel: ['Annulation', 'Purge', 'Néant'], push: ['Onde', 'Distorsion', 'Contretemps'],
   };
   const pickSalt = (arr, s, salt, n) => { const ok = arr.filter(r => !r.cond || r.cond(s)); const base = ok.length ? ok : arr; return base[hash(salt, n) % base.length]; };
+  const HEAL_OFF_K = 3; // soins selon l'Attaque / Atq. Spé : % de la stat (calibré sur les PV moyens d'une cible)
   const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
   const famKit = {};
@@ -1906,6 +1907,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const k = want && (kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim && x.slot === 0) || kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim));
       if (k) { k.scale = want; k.pow = Math.round(k.pow * (want === 'spe' ? 0.92 : 1.05)); k.statScale = true; }
     }
+    // Trois façons de soigner selon le profil du soigneur (à stats typiques, toutes rendent autant qu'avant) :
+    // · PV du soigneur (PV de base ≥ 100 et au-dessus de l'offensive) : % de SES PV max, divisé par sa stat de PV de base
+    //   (×100/PV) pour que les géants comme Leuphorie ne soignent pas deux fois plus ;
+    // · Attaque ou Atq. Spé (offensive ≥ 110 et au-dessus des défenses) : % de sa meilleure stat offensive ;
+    // · sinon, % des PV max de l'allié soigné (comme avant).
+    if (role === 'heal') {
+      const b = s.b, off = Math.max(b[1], b[3]);
+      const mode = b[0] >= 100 && b[0] >= off ? 'self' : off >= 110 && off > Math.max(b[2], b[4]) ? 'off' : null;
+      if (mode) for (const k of kit) if (k.heal && (k.target === 'heal' || k.target === 'healAll')) {
+        k.healBy = mode;
+        if (mode === 'self') k.heal = Math.max(1, Math.round(k.heal * 100 / b[0]));
+        else { k.healStat = b[1] > b[3] ? 'atk' : 'spa'; k.heal = Math.round(k.heal * HEAL_OFF_K); }
+      }
+    }
     baseCache[sid] = kit.map(k => Object.assign({}, k));
     // Bonus d'évolution : chaque évolution renforce une compétence (+15 %) ou une stat (+10 %).
     for (const bo of evoBonuses(sid)) if (bo.kind === 'skill') {
@@ -1945,8 +1960,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (k.shield) parts.push(`Bouclier de ${k.shield} % de ${k.target === 'heal' ? 'ses PV max sur l’allié soigné' : 'ses PV max sur toute l’équipe'} (2 tours).`);
     if (k.shieldSelf) parts.push(`Se protège d’un bouclier de ${k.shieldSelf} % de ses PV max.`);
     if (k.guard) parts.push('Défense ↑.');
-    if (k.target === 'heal') parts.push(`Rend ${k.heal} % des PV max à l’allié le plus blessé${k.cleanse ? ' et le purifie' : ''}.`);
-    if (k.target === 'healAll') parts.push(`Rend ${k.heal} % des PV max à toute l’équipe${k.cleanse ? ' et retire statuts et malus' : ''}.`);
+    const hsrc = k.healBy === 'self' ? `${k.heal} % de ses propres PV max` : k.healBy === 'off' ? `${k.heal} % de son ${k.healStat === 'atk' ? 'Attaque' : 'Atq. Spé'}` : `${k.heal} % des PV max`;
+    if (k.target === 'heal') parts.push(`Rend ${hsrc}${k.healBy ? ' en PV' : ''} à l’allié le plus blessé${k.cleanse ? ' et le purifie' : ''}.`);
+    if (k.target === 'healAll') parts.push(`Rend ${hsrc}${k.healBy ? ' en PV' : ''} à toute l’équipe${k.cleanse ? ' et retire statuts et malus' : ''}.`);
     if (k.revive) parts.push(`Ranime un allié K.O. avec ${k.revive} % de ses PV${k.reviveMax ? ` (${k.reviveMax === 1 ? 'une fois' : k.reviveMax + ' fois'} par combat)` : ''}. Recharge : ${k.cd} tours.`);
     if (k.regen) parts.push(`Régénération : ${k.regen} % des PV max par tour pendant 3 tours (${k.regenTo === 'team' ? 'toute l’équipe' : k.regenTo === 'self' ? 'lui-même' : 'allié le plus blessé'}).`);
     if (k.dispel) parts.push(`${k.dispelChance ? k.dispelChance + ' % de chances de retirer' : 'Retire'} les bonus ${k.target === 'all' || k.target === 'debuffAll' ? 'des ennemis' : 'de la cible'}.`);
@@ -2312,7 +2328,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (sk.aim && sk.aim !== 'spread' && !forced) single = aimTarget(b, u, sk) || single;
     // Soins réduits de 20 % : un soin ne doit pas effacer à lui seul plusieurs attaques.
     const hb = 1 + ((u.st && u.st.healp) || 0) / 100; // ensemble de runes Grâce
-    const healAmt = (t, pct) => Math.round(t.maxHp * pct / 100 * HEAL_SCALE * (u.role === 'heal' ? 1.2 : 1) * hb);
+    // Base du soin : PV max de la cible (par défaut), PV max du soigneur, ou sa meilleure stat offensive.
+    const healBase = t => sk.healBy === 'self' ? u.maxHp : sk.healBy === 'off' ? (u.st[sk.healStat] || 0) : t.maxHp;
+    const healAmt = (t, pct) => Math.round(healBase(t) * pct / 100 * HEAL_SCALE * (u.role === 'heal' ? 1.2 : 1) * hb);
     const heal = (t, pct) => {
       const h = Math.min(t.maxHp - t.hp, healAmt(t, pct));
       t.hp += h; log.push({ k: 'heal', who: t.uid, amount: h });
@@ -3158,7 +3176,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Correctif par position d'étape : à menace égale, une équipe de 4 ou 5 adversaires (plus concentrés) ou un boss
   // est plus dur qu'une équipe de 6 ; réglé par simulation pour que chaque étape pèse autant que ses voisines.
   // Étapes isolées plus dures que leur menace (types adverses très concentrés), mesurées avec plusieurs équipes.
-  const CHAIN_FIX = Object.assign({ 'hell 10-6': 0.85, 'hard 10-6': 0.9, 'hell 11-4': 0.82, 'hell 10-9': 0.93, 'hell 9-2': 0.92, 'hard 9-2': 0.95 }, globalThis.CHAIN_FIX || {});
+  const CHAIN_FIX = Object.assign({ 'hell 11-8': 0.84, 'hard 11-8': 0.9, 'hell 10-6': 0.85, 'hard 10-6': 0.9, 'hell 11-4': 0.82, 'hell 10-9': 0.93, 'hell 9-2': 0.92, 'hard 9-2': 0.95 }, globalThis.CHAIN_FIX || {});
   const HERO_THREAT = +(globalThis.HERO_THREAT || 2.4);
   const CHAIN_K = [0.86, 1.02, 1.04, 1.04, 1.01, 1.01, 0.97, 0.96, 0.91, 0.8];
   const diffLevel = (c, i, d) => CHAIN(d) ? chainLevel(c, i, d) : Math.min(100, stageLevel(c, i) + DIFFS[d || 'normal'].lv);
