@@ -1273,6 +1273,11 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .page.detail.slide-next { animation: slideNext .25s ease-out; } .page.detail.slide-prev { animation: slidePrev .25s ease-out; }
 @keyframes slideNext { from { opacity: .3; transform: translateX(-30px); } } @keyframes slidePrev { from { opacity: .3; transform: translateX(30px); } }
 .forge .forge-p { font-size: 10.5px; color: var(--muted); font-weight: 800; }
+/* Montée jusqu'à un niveau choisi (curseur) */
+.feed-to { display: grid; gap: 6px; padding: 10px 12px; margin: 8px 0; border-radius: 12px; background: #0004; border: 1px solid var(--line); }
+.feed-to-head { display: flex; justify-content: space-between; align-items: baseline; } .feed-to-head b { font-family: var(--display); font-size: 22px; color: var(--cyan); }
+.feed-to input[type=range] { width: 100%; accent-color: var(--cyan); height: 28px; }
+.feed-to-sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 </style>
 <div id="app"></div>
@@ -2704,6 +2709,22 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     save(); return used;
   }
 
+  // Montée jusqu'à un niveau choisi : expérience à fournir, bonbons à utiliser et coût en Pokédollars.
+  const expTo = (mon, target) => { let e = -mon.exp; for (let L = mon.lv; L < Math.min(target, A.levelCap(mon)); L++) e += expNeed(L); return Math.max(0, e); };
+  function feedPlan(mon, target) {
+    let need = expTo(mon, target); const have = Object.assign({ S: 0, M: 0, L: 0 }, S.candies), use = { S: 0, M: 0, L: 0 };
+    // Petits bonbons d'abord (même coût en ₽ par point d'exp) : les gros restent pour les hauts niveaux.
+    for (const k of ['S', 'M', 'L']) { const e = CANDIES[k].exp; const n = Math.min(have[k], Math.ceil(need / e)); use[k] += n; have[k] -= n; need -= n * e; if (need <= 0) break; }
+    const exp = ['S', 'M', 'L'].reduce((a, k) => a + use[k] * CANDIES[k].exp, 0), gold = ['S', 'M', 'L'].reduce((a, k) => a + use[k] * Math.round(CANDIES[k].exp / 4), 0);
+    return { use, gold, ok: need <= 0 && gold <= S.gold };
+  }
+  // Niveau le plus haut atteignable avec les bonbons et Pokédollars disponibles.
+  function maxFeedLevel(mon) { let lo = mon.lv; for (let t = mon.lv + 1; t <= A.levelCap(mon); t++) { if (feedPlan(mon, t).ok) lo = t; else break; } return lo; }
+  function feedTo(mon, target) {
+    const p = feedPlan(mon, target); if (!p.ok) return false;
+    for (const k of ['S', 'M', 'L']) if (p.use[k]) feed(mon, k, p.use[k]);
+    return true;
+  }
   // Extraction : le Pokémon redescend au niveau 5 et rend 80 % de son expérience en bonbons (20 % de perte).
   const EXTRACT_KEEP = 0.8, EXTRACT_LV = 5;
   function totalExp(mon) { let t = mon.exp || 0; for (let L = EXTRACT_LV; L < mon.lv; L++) t += expNeed(L); return t; }
@@ -3564,7 +3585,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, dayKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
     RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
-    QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
+    feedPlan, maxFeedLevel, feedTo, QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, arenaThreat, arenaLevel, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, forgeProg, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
     buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
@@ -5163,6 +5184,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="xp"><i style="width:${atCap ? 100 : Math.min(100, m.exp / need * 100)}%"></i></div>
         <div class="muted small">Puissance ${fmt(G.powerOf(m))}</div></div></div>
       <section><h3>Monter de niveau</h3><div class="candy-row">${['S', 'M', 'L'].map(c => `<button class="btn candy" data-candy="${c}" ${!s.candies[c] || atCap ? 'disabled' : ''}>${itemIcon('rare-candy')}<b>${G.CANDIES[c].n}</b><span>×${s.candies[c] || 0} · +${fmt(G.CANDIES[c].exp)} exp</span></button>`).join('')}</div>
+        ${(mx => mx > m.lv ? `<div class="feed-to"><div class="feed-to-head"><span>Monter jusqu’au niveau</span><b id="ft-lv">${mx}</b></div>
+          <input type="range" id="ft-range" min="${m.lv + 1}" max="${mx}" value="${mx}" step="1"><div class="feed-to-sub"><span class="muted small" id="ft-cost"></span><button class="btn primary small" data-feedto>Monter</button></div></div>`
+          : `<p class="muted small">${atCap ? '' : 'Pas assez de bonbons ou de Pokédollars pour gagner un niveau.'}</p>`)(atCap ? m.lv : G.maxFeedLevel(m))}
         <div class="row"><button class="btn small" data-feedmax ${atCap ? 'disabled' : ''}>Utiliser jusqu'au niveau max</button><span class="muted small">Coût : 1 ₽ pour 4 points d'exp.</span></div>
         <div class="row"><button class="btn small ghost" data-extract ${m.lv > 5 ? '' : 'disabled'}>Extraire l’expérience</button><span class="muted small">Redescend au niveau 5 et rend 80 % de son expérience en bonbons.</span></div></section>
       ${evos.length && !m.form ? `<section><h3>Évolution · palier ${'★'.repeat(A.starsOf(m) + 1)}</h3><p class="muted small">Atteins le niveau ${cap}, puis fais évoluer pour débloquer 10 niveaux de plus.</p>
@@ -5195,6 +5219,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       if (!await confirmBox(`Ramener <b>${esc(monName(m))}</b> du niveau ${m.lv} au niveau 5 ?<br><br>Expérience accumulée : ${fmt(p.total)} · tu récupères <b>${fmt(p.keep)}</b> (−20 %) :<br><b>${got}</b>.<br><br><span class="muted small">Ses évolutions et sa forme ultime sont conservées.</span>`, 'Extraire')) return;
       const r = G.extractExp(m); if (r) toast(`${monName(m)} revient au niveau 5. Bonbons récupérés : ${got}.`); re();
     };
+    const ft = app.querySelector('#ft-range');
+    if (ft) { const upd = () => { const t = +ft.value, p = G.feedPlan(m, t); app.querySelector('#ft-lv').textContent = t;
+        app.querySelector('#ft-cost').textContent = [['L', 'L'], ['M', 'M'], ['S', 'S']].filter(([k]) => p.use[k]).map(([k]) => `${G.CANDIES[k].n} ×${p.use[k]}`).join(' · ') + ` · ${fmt(p.gold)} ₽`; };
+      ft.oninput = upd; upd();
+      app.querySelector('[data-feedto]').onclick = () => { const before = m.lv, t = +ft.value; if (G.feedTo(m, t)) toast(`${monName(m)} : niveau ${before} → ${m.lv}`); else toast('Pas assez de bonbons ou de Pokédollars.'); re(); }; }
     app.querySelector('[data-feedmax]').onclick = () => { const before = m.lv; for (const c of ['L', 'M', 'S']) G.feed(m, c, 999); toast(m.lv > before ? `${monName(m)} : niveau ${before} → ${m.lv}` : 'Pas assez de bonbons ou de Pokédollars.'); re(); };
     app.querySelectorAll('[data-evo]').forEach(b => b.onclick = async () => {
       const to = +b.dataset.evo; if (!await evoPreview(m, { sid: to })) return;
