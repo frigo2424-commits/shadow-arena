@@ -2909,8 +2909,15 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     { id: 'hell', cat: 'Campagne', n: 'Chapitres en Enfer', icon: 'poke-ball', val: () => CHAPTERS.filter((_, c) => prog('hell')[c + '-' + (CHAPTER_STAGES - 1)]).length,
       tiers: CHAPTERS.map(({ n: r }, c) => [c + 1, chapterRew(c, 3, 400), `Vaincre le boss de ${r} en Enfer`]) },
     { id: 'stages', cat: 'Campagne', n: 'Étapes de campagne', icon: 'poke-ball', val: () => Object.keys(S.campaign).length, tiers: range(5, CHAPTERS.length * 10, 5).map(n => [n, T(4, n % 15 === 0 ? 1 : 0), `Réussir ${n} étapes`]) },
-    { id: 'stars', cat: 'Campagne', n: 'Étoiles de campagne', icon: 'star', val: () => Object.values(S.campaign).reduce((a, b) => a + b, 0),
+    { id: 'stars', cat: 'Campagne', n: 'Étoiles de campagne (Normale)', icon: 'star', val: () => Object.values(S.campaign).reduce((a, b) => a + b, 0),
       tiers: [[30, T(3, 1)], [60, T(3, 0, 1)], [90, T(5, 1)], [150, T(5, 1, 1)], [210, T(0, 2, 1)], [270, T(0, 2, 1, 1)], [330, T(0, 2, 2)], [360, T(0, 0, 2, 1)]].map(([n, r]) => [n, r, `Cumuler ${n} étoiles`]) },
+    // Étoiles du Difficile et de l'Enfer : mêmes paliers, récompenses plus riches selon la difficulté (comptées telles quelles).
+    { id: 'stars_hard', cat: 'Campagne', n: 'Étoiles en Difficile', icon: 'star', val: () => Object.values(prog('hard')).reduce((a, b) => a + b, 0),
+      tiers: [[30, T(2, 0, 0, 0, 80)], [60, T(0, 1)], [90, T(2, 1)], [150, T(0, 0, 1, 0, 165)], [210, T(0, 2)], [270, T(0, 1, 1)], [330, T(0, 0, 2)], [360, T(0, 0, 1, 1)]]
+        .map(([n, r]) => [n, Object.assign(r, { exact: true }), `Cumuler ${n} étoiles en Difficile`]) },
+    { id: 'stars_hell', cat: 'Campagne', n: 'Étoiles en Enfer', icon: 'star', val: () => Object.values(prog('hell')).reduce((a, b) => a + b, 0),
+      tiers: [[30, T(0, 1, 0, 0, 165)], [60, T(0, 0, 1)], [90, T(0, 2)], [150, T(0, 1, 1, 0, 250)], [210, T(0, 0, 2)], [270, T(0, 0, 0, 1)], [330, T(0, 1, 2)], [360, T(0, 0, 0, 2)]]
+        .map(([n, r]) => [n, Object.assign(r, { exact: true }), `Cumuler ${n} étoiles en Enfer`]) },
     ...Object.keys({ bonbons: 1, cristaux: 1, runes: 1, or: 1, ultime: 1 }).map(k => ({ id: 'dg_' + k, cat: 'Donjons', n: () => DUNGEONS[k].n, icon: () => DUNGEONS[k].icon, val: () => S.dungeons[k] || 0,
       tiers: k === 'ultime' ? [[1, T(0, 1, 1, 0, 200), 'Vaincre un autel du Sanctuaire Ultime'], [2, T(0, 1, 1, 0, 300), 'Vaincre l’Autel Méga et l’Autel Gigamax']] : range(1, 10).map(f => [f, f === 10 ? T(3, 0, 1, 0, 200) : T(2, f % 5 === 0 ? 1 : 0), `Vaincre le sous-niveau ${f}`]) })),
     { id: 'arenaWins', cat: 'Arène', n: 'Victoires en arène', icon: 'gold-bottle-cap', val: () => S.arena.wins || 0,
