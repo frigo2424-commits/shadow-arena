@@ -1791,6 +1791,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     regen: ['Source', 'Sève', 'Rosée'], dispel: ['Annulation', 'Purge', 'Néant'], push: ['Onde', 'Distorsion', 'Contretemps'],
   };
   const pickSalt = (arr, s, salt, n) => { const ok = arr.filter(r => !r.cond || r.cond(s)); const base = ok.length ? ok : arr; return base[hash(salt, n) % base.length]; };
+  const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
   const famKit = {};
   // Choix des 3 recettes d'une lignée (forme la plus puissante), avec contrôle d'unicité.
@@ -1867,6 +1868,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       if (f.heal) k.heal = Math.round(f.heal * M); if (f.shield) k.shield = Math.round(f.shield * M);
       if (f.shieldSelf) k.shieldSelf = Math.round(f.shieldSelf * M); if (f.regen) k.regen = Math.round(f.regen * M);
       if (f.allyHeal) k.allyHeal = Math.round(f.allyHeal * M); if (f.revive) k.revive = Math.round(f.revive * M);
+      // Résurrection : un avantage des Fabuleux et Mythiques. Plus la rareté est basse, plus la recharge est longue
+      // et moins on peut ranimer par combat (Normaux, Rares, Épiques : une fois ; Légendaires : deux fois).
+      if (f.revive) { k.cd = REVIVE_CD[rar] || 6; k.reviveMax = REVIVE_MAX[rar] || 0; }
       k.n = slot === 2 && sig ? sig : nameOf(r.kind, t, slot + 1);
       return k;
     });
@@ -1937,7 +1941,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (k.guard) parts.push('Défense ↑.');
     if (k.target === 'heal') parts.push(`Rend ${k.heal} % des PV max à l’allié le plus blessé${k.cleanse ? ' et le purifie' : ''}.`);
     if (k.target === 'healAll') parts.push(`Rend ${k.heal} % des PV max à toute l’équipe${k.cleanse ? ' et retire statuts et malus' : ''}.`);
-    if (k.revive) parts.push(`Ranime un allié K.O. avec ${k.revive} % de ses PV.`);
+    if (k.revive) parts.push(`Ranime un allié K.O. avec ${k.revive} % de ses PV${k.reviveMax ? ` (${k.reviveMax === 1 ? 'une fois' : k.reviveMax + ' fois'} par combat)` : ''}. Recharge : ${k.cd} tours.`);
     if (k.regen) parts.push(`Régénération : ${k.regen} % des PV max par tour pendant 3 tours (${k.regenTo === 'team' ? 'toute l’équipe' : k.regenTo === 'self' ? 'lui-même' : 'allié le plus blessé'}).`);
     if (k.dispel) parts.push(`${k.dispelChance ? k.dispelChance + ' % de chances de retirer' : 'Retire'} les bonus ${k.target === 'all' || k.target === 'debuffAll' ? 'des ennemis' : 'de la cible'}.`);
     if (k.apPush) parts.push(`Réduit la jauge d’action ${k.target === 'all' ? 'des ennemis' : 'de la cible'} de ${k.apPush / 10} %.`);
@@ -2190,7 +2194,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const hurt = allies.filter(a => ratio(a) < 0.7).length, low = allies.some(a => ratio(a) < 0.5);
     const debuffed = allies.some(a => a.ail || a.buffs.some(x => x.mult < 1));
     const use = (f) => opts.find(x => f(x.s));
-    let pick = use(s => s.revive && b.units.some(x => x.side === u.side && !x.alive))
+    const canRevive = s => s.revive && (!s.reviveMax || (u.revives || 0) < s.reviveMax);
+    let pick = use(s => canRevive(s) && b.units.some(x => x.side === u.side && !x.alive))
       || use(s => s.target === 'healAll' && (hurt >= 2 || allies.some(a => ratio(a) < 0.35)))
       || use(s => s.target === 'heal' && (low || debuffed))
       || use(s => s.target === 'healAll' && hurt >= 1 && debuffed)
@@ -2430,9 +2435,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       for (const a of list) (a.hots = a.hots || []).push({ pct: sk.regen * hb, turns: 3, src: u.uid });
       if (list.length) log.push({ k: 'msg', txt: `Régénération ${list.length > 1 ? 'pour l’équipe' : 'pour ' + list[0].name} !` });
     }
-    if (sk.revive) {
+    if (sk.revive && (!sk.reviveMax || (u.revives || 0) < sk.reviveMax)) {
       const ko = b.units.find(x => x.side === u.side && !x.alive);
-      if (ko) { ko.alive = true; ko.hp = Math.round(ko.maxHp * sk.revive / 100); ko.ail = null; ko.buffs = []; ko.ap = 0; ko.shield = 0; ko.hots = []; log.push({ k: 'revive', who: ko.uid, txt: `${ko.name} revient au combat !` }); log.push({ k: 'heal', who: ko.uid, amount: ko.hp }); }
+      if (ko) { u.revives = (u.revives || 0) + 1; ko.alive = true; ko.hp = Math.round(ko.maxHp * sk.revive / 100); ko.ail = null; ko.buffs = []; ko.ap = 0; ko.shield = 0; ko.hots = []; log.push({ k: 'revive', who: ko.uid, txt: `${ko.name} revient au combat !` }); log.push({ k: 'heal', who: ko.uid, amount: ko.hp }); }
     }
     if (sk.teamStat) for (const a of allies) for (const [i, v] of sk.teamStat) if (STAT_IDX[i]) addBuff(a, STAT_IDX[i], v, log, 0, u);
     if (sk.cleanse && sk.target === 'allies') for (const a of allies) { a.ail = null; a.buffs = a.buffs.filter(x => x.mult > 1); }
