@@ -1279,6 +1279,14 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .feed-to input[type=range] { width: 100%; accent-color: var(--cyan); height: 28px; }
 .feed-to-sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
+/* Adéquation rune / rôle */
+.rune-fit { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; align-self: flex-start; margin: 4px 0 2px; background: rgba(255,255,255,.06); color: var(--muted, #9aa4b8); }
+.rune-fit.f1 { color: #cfd6e4; }
+.rune-fit.f2 { color: #3ee08f; background: rgba(62,224,143,.12); }
+.rune-fit.f3 { color: #ffd34a; background: rgba(255,211,74,.14); }
+.role-rune-help { margin: 4px 0 8px; opacity: .9; }
+.chips-lbl { align-self: center; margin-right: 4px; }
+
 </style>
 <div id="app"></div>
 <div id="modal-root"></div>
@@ -2568,6 +2576,24 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     elan: { n: 'Élan', need: 2, stat: 'spep', v: 8, d: '+8 % Vitesse' },
     grace: { n: 'Grâce', need: 4, stat: 'healp', v: 30, d: '+30 % de soins prodigués : soins, régénération et soins d’équipe' },
   };
+  // Runes recherchées par rôle : ensembles conseillés (du plus au moins utile) et stats utiles (principales et secondaires).
+  const ROLE_RUNES = {
+    dps: { sets: ['fureur', 'destruction', 'lame', 'vampire', 'celerite', 'elan'], stats: ['atkp', 'critd', 'crit', 'atk', 'spe', 'spep', 'acc'] },
+    tank: { sets: ['rempart', 'vitalite', 'tenacite', 'vampire', 'elan'], stats: ['hpp', 'defp', 'hp', 'def', 'res', 'spe'] },
+    heal: { sets: ['grace', 'vitalite', 'celerite', 'elan', 'rempart', 'tenacite'], stats: ['spe', 'spep', 'hpp', 'defp', 'hp', 'res'] },
+    ctrl: { sets: ['focus', 'celerite', 'elan', 'tenacite', 'fureur'], stats: ['acc', 'spe', 'spep', 'atkp', 'res', 'hpp'] },
+    sup: { sets: ['celerite', 'elan', 'focus', 'tenacite', 'vitalite', 'rempart'], stats: ['spe', 'spep', 'hpp', 'defp', 'res', 'acc'] },
+  };
+  // Note d'adéquation d'une rune à un rôle (0 = rien d'utile). Ensemble : jusqu'à 6 points ; stat principale :
+  // jusqu'à 4 ; chaque stat secondaire utile : jusqu'à 1. Emplacements I, III et V : principale fixe, non notée.
+  function runeFit(r, role) {
+    const rr = ROLE_RUNES[role]; if (!rr) return 0;
+    const si = rr.sets.indexOf(r.set), w = k => { const i = rr.stats.indexOf(k); return i < 0 ? 0 : 1 - i / (rr.stats.length + 1); };
+    let sc = si < 0 ? 0 : 6 * (1 - si / (rr.sets.length + 1));
+    if (r.slot % 2 === 0) sc += 4 * w(r.main);
+    for (const x of r.subs) sc += w(x.s);
+    return Math.round(sc * 10) / 10;
+  }
   const RUNE_RARITY = [null, { n: 'Normale', color: '#a7b1c6', subs: 0, m: 1 }, { n: 'Rare', color: '#3fa7ff', subs: 1, m: 1.1 }, { n: 'Épique', color: '#b56cff', subs: 2, m: 1.2 },
     { n: 'Légendaire', color: '#ffbd3a', subs: 3, m: 1.32 }, { n: 'Fabuleuse', color: '#5ee8ff', subs: 4, m: 1.38 }, { n: 'Mythique', color: '#ff4fa3', subs: 4, m: 1.45 }];
   const RUNE_MYTH = 6; // qualité la plus haute (Fabuleuse = 5)
@@ -3631,7 +3657,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     statsOf, powerOf, teamPower, expNeed, gainExp, feed, CANDIES, extractPreview, extractExp, EXTRACT_KEEP, evolveCost, canEvolve, evolve, canAscend, ascend, ULT_COST, stageIndex,
     summon, buyTickets, pityLeft, pityInfo, PITY, PITY_FIRST, PITY_MYTH, BANNERS, TICKETS, weeklyList, weekKey, dayKey, newMon, trainerNeed, trainerRewards, DEX_STEPS, ARENA_TIER_REWARDS,
     DUPE_BONUS, DUPE_MAX, dupesOf, dupeBonus, soulsOf, useSoul, SOUL_GOLD, ACHIEVEMENTS, achState, achName, achIcon, claimAch, claimAll, claimable, newAchievements, stageFactor, threat,
-    RUNE_SETS, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
+    RUNE_SETS, ROLE_RUNES, runeFit, RUNE_RARITY, STATS_FR, mainValue, makeRune, upgradeRune, runeUpCost, runeUpChance, runeSellValue, RUNE_MAX, RUNE_SLOTS, SLOT_MAIN,
     RUNE_LOOT, feedPlan, maxFeedLevel, feedTo, QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, arenaThreat, arenaLevel, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, forgeProg, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
@@ -5337,7 +5363,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return `<span class="rune-gem" style="--rr:${G.RUNE_RARITY[r.rar].color}">${ROMAN[r.slot - 1]}</span><span class="rune-txt"><b>${esc(G.RUNE_SETS[r.set].n)} +${r.lv}</b><small>${statTxt(r.main, G.mainValue(r))}</small></span>`;
   }
   // forMon : Pokémon pour lequel on choisit une rune (une rune portée par un autre est signalée en couleur).
-  function runeCard(r, actions, forMon) {
+  // Adéquation rune / rôle : étiquette et texte d'aide.
+  const fitLv = (r, role) => { const f = G.runeFit(r, role); return f >= 9 ? 3 : f >= 6 ? 2 : f >= 3 ? 1 : 0; };
+  const fitBadge = (r, role) => { const l = fitLv(r, role); return `<div class="rune-fit f${l}">${['Peu adaptée', 'Correcte', 'Adaptée', '★ Idéale'][l]} pour ${A.ROLES[role].i} ${esc(A.ROLES[role].n)}</div>`; };
+  const roleRuneTxt = role => { const rr = G.ROLE_RUNES[role]; return `<p class="small role-rune-help"><b>${A.ROLES[role].i} ${esc(A.ROLES[role].n)}</b> · ensembles conseillés : ${rr.sets.map(k => esc(G.RUNE_SETS[k].n)).join(', ')}. Stats recherchées : ${rr.stats.map(k => esc(G.STATS_FR[k] || 'Soins %')).join(', ')}.</p>`; };
+  function runeCard(r, actions, forMon, fitRole) {
     const owner = r.on && S().mons.find(m => m.uid === r.on);
     const tag = owner ? (forMon && owner.uid === forMon.uid ? '<span class="rune-owner self">✓ Équipée</span>' : `<span class="rune-owner" title="Déjà équipée par ${esc(monName(owner))}">${monImg(owner)}${esc(monName(owner))}</span>`) : '';
     return `<div class="rune-card ${owner && !(forMon && owner.uid === forMon.uid) ? 'taken' : ''}" style="--rr:${G.RUNE_RARITY[r.rar].color}"><div class="rune-top"><span class="rune-gem">${ROMAN[r.slot - 1]}</span>
@@ -5345,7 +5375,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <div class="rune-main">${statTxt(r.main, G.mainValue(r))}</div>
       <ul>${r.subs.map(x => `<li>${statTxt(x.s, x.v)}</li>`).join('') || '<li class="muted">Aucune stat secondaire</li>'}</ul>
       <div class="small muted">Ensemble · ${esc(setTxt(r.set))}</div>
-      <div class="row">${actions}</div></div>`;
+      ${fitRole ? fitBadge(r, fitRole) : ''}<div class="row">${actions}</div></div>`;
   }
   // Ensembles actifs sur un Pokémon.
   function runeSetsHtml(m) {
@@ -5362,29 +5392,34 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   function runePicker(m, slot, back) {
     const s = S(), cur = m.runes[slot - 1] && s.runes.find(x => x.id === m.runes[slot - 1]);
-    const list = s.runes.filter(r => r.slot === slot && r !== cur).sort((a, b) => b.rar - a.rar || b.lv - a.lv);
+    const role = A.roleOf(m.sid), list = s.runes.filter(r => r.slot === slot && r !== cur).sort((a, b) => fitLv(b, role) - fitLv(a, role) || b.rar - a.rar || b.lv - a.lv || G.runeFit(b, role) - G.runeFit(a, role));
     modal(`<div class="modal-head"><button class="btn ghost small" data-close>‹ Retour</button><h3>Emplacement ${ROMAN[slot - 1]} · ${esc(monName(m))}</h3></div>
       ${cur ? runeCard(cur, `<button class="btn small" data-up="${cur.id}" ${cur.lv >= G.RUNE_MAX ? 'disabled' : ''}>Améliorer (${fmt(G.runeUpCost(cur))} ₽${G.runeUpChance(cur) < 100 ? ` · ${G.runeUpChance(cur)} %` : ''})</button><button class="btn small ghost" data-off>Retirer</button>`, m) : ''}
-      <h4>${list.length ? 'Runes disponibles' : 'Aucune autre rune pour cet emplacement : explore la Forge des Runes.'}</h4>
-      <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small primary" data-eq="${r.id}">${r.on ? 'Reprendre et équiper' : 'Équiper'}</button>`, m)).join('')}</div>
+      <h4>${list.length ? 'Runes disponibles · les plus adaptées au rôle d’abord' : 'Aucune autre rune pour cet emplacement : explore la Forge des Runes.'}</h4>${list.length ? roleRuneTxt(role) : ''}
+      <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small primary" data-eq="${r.id}">${r.on ? 'Reprendre et équiper' : 'Équiper'}</button>`, m, role)).join('')}</div>
       <div class="row end"><button class="btn ghost" data-close>Fermer</button></div>`, (bg, close) => {
       bg.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { equip(m, s.runes.find(r => r.id === b.dataset.eq)); close(); back(); });
       const off = bg.querySelector('[data-off]'); if (off) off.onclick = () => { cur.on = null; m.runes[slot - 1] = null; G.save(); close(); back(); };
       bg.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { const lv = cur.lv, c = G.runeUpCost(cur), r = G.upgradeRune(cur); upToast(r, lv, c); close(); back(); runePicker(m, slot, back); });
     });
   }
-  let runeFilter = { slot: 0, set: '', free: false };
+  let runeFilter = { slot: 0, set: '', free: false, role: '' };
   function runesScreen(back) {
     const s = S();
-    const list = s.runes.filter(r => (!runeFilter.slot || r.slot === runeFilter.slot) && (!runeFilter.set || r.set === runeFilter.set) && (!runeFilter.free || !r.on)).sort((a, b) => b.rar - a.rar || b.lv - a.lv);
+    const fr = runeFilter.role;
+    const list = s.runes.filter(r => (!runeFilter.slot || r.slot === runeFilter.slot) && (!runeFilter.set || r.set === runeFilter.set) && (!runeFilter.free || !r.on) && (!fr || fitLv(r, fr) > 0))
+      .sort((a, b) => fr ? fitLv(b, fr) - fitLv(a, fr) || b.rar - a.rar || G.runeFit(b, fr) - G.runeFit(a, fr) || b.lv - a.lv : b.rar - a.rar || b.lv - a.lv);
     app.innerHTML = topbar('Runes') + `<div class="page"><p class="muted small">${G.RUNE_SLOTS} emplacements par Pokémon (I Attaque, III Défense, V PV ; II, IV, VI variables). Les runes d’un même ensemble donnent un bonus par groupe de 2 ou 4. Qualité de Normale à Mythique : plus de stats secondaires et des valeurs plus fortes. Amélioration de +0 à +${G.RUNE_MAX} : nouvelle stat secondaire (ou renforcement) aux niveaux 3, 6, 9, 12 et 15. Coût croissant ; à partir de +7 l’amélioration peut échouer (95 % vers +7… 60 % vers +15) et l’échec coûte quand même les Pokédollars. Farme la Forge des Runes !</p>
       <div class="chips">${[0, 1, 2, 3, 4, 5, 6].map(n => `<button class="chip ${runeFilter.slot === n ? 'on' : ''}" data-f="${n}">${n ? ROMAN[n - 1] : 'Tous emplacements'}</button>`).join('')}</div>
       <div class="chips">${['', ...Object.keys(G.RUNE_SETS)].map(k => `<button class="chip ${runeFilter.set === k ? 'on' : ''}" data-set="${k}">${k ? esc(G.RUNE_SETS[k].n) : 'Tous ensembles'}</button>`).join('')}<button class="chip ${runeFilter.free ? 'on' : ''}" data-free>Non équipées</button></div>
+      <div class="chips"><span class="muted small chips-lbl">Pour le rôle :</span>${['', ...A.ROLE_ORDER].map(k => `<button class="chip ${fr === k ? 'on' : ''}" data-role="${k}">${k ? `${A.ROLES[k].i} ${esc(A.ROLES[k].n)}` : 'Tous'}</button>`).join('')}</div>
+      ${fr ? roleRuneTxt(fr) : ''}
       ${runeFilter.set ? `<p class="small">${esc(setTxt(runeFilter.set))}</p>` : ''}
-      <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small" data-up="${r.id}" ${r.lv >= G.RUNE_MAX ? 'disabled' : ''}>+1 (${fmt(G.runeUpCost(r))} ₽${G.runeUpChance(r) < 100 ? ` · ${G.runeUpChance(r)} %` : ''})</button>${r.on ? '' : `<button class="btn small ghost" data-sell="${r.id}">Vendre (${fmt(G.runeSellValue(r))} ₽)</button><button class="btn small ghost" data-dis="${r.id}">Désintégrer (+${G.shardValue(r)} ${itemIcon('shard', 'tiny-ic')})</button>`}`)).join('') || '<p class="muted">Aucune rune. La Forge des Runes en donne.</p>'}</div></div>`;
+      <div class="rune-list">${list.map(r => runeCard(r, `<button class="btn small" data-up="${r.id}" ${r.lv >= G.RUNE_MAX ? 'disabled' : ''}>+1 (${fmt(G.runeUpCost(r))} ₽${G.runeUpChance(r) < 100 ? ` · ${G.runeUpChance(r)} %` : ''})</button>${r.on ? '' : `<button class="btn small ghost" data-sell="${r.id}">Vendre (${fmt(G.runeSellValue(r))} ₽)</button><button class="btn small ghost" data-dis="${r.id}">Désintégrer (+${G.shardValue(r)} ${itemIcon('shard', 'tiny-ic')})</button>`}`, null, fr || null)).join('') || (fr ? '<p class="muted">Aucune rune adaptée à ce rôle avec ces filtres.</p>' : '<p class="muted">Aucune rune. La Forge des Runes en donne.</p>')}</div></div>`;
     bindBack(back || bagScreen);
     app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { runeFilter.slot = +b.dataset.f; runesScreen(back); });
     app.querySelectorAll('[data-set]').forEach(b => b.onclick = () => { runeFilter.set = b.dataset.set; runesScreen(back); });
+    app.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { runeFilter.role = b.dataset.role; runesScreen(back); });
     app.querySelector('[data-free]').onclick = () => { runeFilter.free = !runeFilter.free; runesScreen(back); };
     app.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { const ru = s.runes.find(x => x.id === b.dataset.up), lv = ru.lv, c = G.runeUpCost(ru); upToast(G.upgradeRune(ru), lv, c); runesScreen(back); });
     app.querySelectorAll('[data-dis]').forEach(b => b.onclick = () => { const n = G.disintegrate([b.dataset.dis]); toast(`+${n} Éclats runiques`); runesScreen(back); });
