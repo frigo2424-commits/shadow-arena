@@ -1554,7 +1554,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const PASSIVE_TABLE = {
     // Starters
     3: ['Floraison millénaire', [F('regen', 3), F('hp', 10)]], 6: ['Brasier', [F('dmgUp', 10), F('statusAura', 15, { ail: 4 })]],
-    9: ['Carapace-Canon', [F('bulwark', 10), F('aoeUp', 15), F('shieldStart', 8)]], 154: ['Arôme apaisant', [F('regen', 4), F('cleanseTurn', 1)]],
+    9: ['Carapace-Canon', [F('bulwark', 10), F('thorns', 12), F('shieldStart', 8)]], 154: ['Arôme apaisant', [F('regen', 4), F('cleanseTurn', 1)]],
     157: ['Éruption', [F('aoeUp', 20), F('firstStrike', 25)]], 160: ['Mâchoire d’acier', [F('moxie', 10), F('lifelink', 10)]],
     254: ['Délestage', [F('speed', 20), F('doubleTurn', 15)]], 257: ['Turbo', [F('speed', 10), F('moxie', 12)]],
     260: ['Moiteur', [F('hp', 15), F('intimidate', 1, { stat: 'spe' })]], 389: ['Écosystème', [F('shieldStart', 10), F('regen', 2)]],
@@ -1562,10 +1562,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     500: ['Téméraire', [F('dmgUp', 15), F('endure', 1)]], 503: ['Coquilame', [F('crit', 15), F('execute', 15)]],
     652: ['Pare-Balles', [F('bulwark', 10), F('thorns', 20)]], 655: ['Magicien', [F('statusAura', 15, { ail: 4 }), F('infiltrate', 20)]],
     658: ['Synergie', [F('moxie', 15), F('speed', 10)]], 724: ['Ombre Spectrale', [F('infiltrate', 30), F('crit', 8)]],
-    727: ['Intimidation', [F('intimidate', 1, { stat: 'atk' }), F('thorns', 10)]], 730: ['Hydratation', [F('aoeUp', 15), F('cleanseTurn', 1)]],
+    727: ['Intimidation', [F('intimidate', 1, { stat: 'atk' }), F('thorns', 10)]], 730: ['Hydratation', [F('regen', 3), F('cleanseTurn', 1)]],
     812: ['Tambour Grondant', [F('regen', 3), F('dmgUp', 8)]], 815: ['Libéro', [F('speed', 15), F('firstStrike', 25)]],
     818: ['Sniper', [F('crit', 20)]], 908: ['Prestidigitation', [F('crit', 20), F('infiltrate', 20)]],
-    911: ['Chant de l’Âme', [F('aura', 10), F('regen', 2)]], 914: ['Danse Aquatique', [F('speed', 15), F('aoeUp', 10)]],
+    911: ['Chant de l’Âme', [F('aura', 10), F('regen', 2)]], 914: ['Danse Aquatique', [F('speed', 15), F('aura', 8)]],
     // Pseudo-légendaires et Pokémon « god tier »
     130: ['Colère Écarlate', [F('intimidate', 1, { stat: 'atk' }), F('moxie', 15), F('dmgUp', 10)]],
     94: ['Ombre Maudite', [F('dmgUp', 28), F('infiltrate', 35), F('statusAura', 25, { ail: 2 }), F('lifelink', 15)]],
@@ -1601,10 +1601,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     250: ['Phénix Arc-en-Ciel', [F('rebirth', 60), F('regen', 4)]], 377: ['Corps de Roche', [F('bulwark', 20), F('thorns', 20)]],
     378: ['Corps de Glace', [F('bulwark', 18), F('statusAura', 15, { ail: 3 })]], 379: ['Corps d’Acier', [F('bulwark', 18), F('pure', 1)]],
     380: ['Voile Éon', [F('teamDr', 10), F('regen', 3)]], 381: ['Lueur Éon', [F('dmgUp', 18), F('speed', 10)]],
-    382: ['Mer Primaire', [F('typeUp', 40, { t: 11 }), F('aoeUp', 20)]], 383: ['Terre Finale', [F('typeUp', 40, { t: 10 }), F('typeUp', 25, { t: 5 }), F('bulwark', 12)]],
+    382: ['Mer Primaire', [F('typeUp', 40, { t: 11 }), F('dmgUp', 15)]], 383: ['Terre Finale', [F('typeUp', 40, { t: 5 }), F('hp', 12), F('bulwark', 12)]],
     384: ['Souffle Delta', [F('dmgUp', 30), F('multitype', 30), F('speed', 15)]], 480: ['Lac Savoir', [F('cleanseTurn', 1), F('aura', 8)]],
     481: ['Lac Émotion', [F('regen', 3), F('teamDr', 8)]], 482: ['Lac Volonté', [F('firstStrike', 25), F('crit', 10)]],
-    483: ['Rugissement du Temps', [F('timeLock', 150), F('speed', 15), F('dmgUp', 15)]], 484: ['Fracture Spatiale', [F('aoeUp', 35), F('crit', 10), F('dmgUp', 10)]],
+    483: ['Rugissement du Temps', [F('timeLock', 150), F('speed', 15), F('dmgUp', 15)]], 484: ['Fracture Spatiale', [F('dmgUp', 22), F('crit', 15), F('infiltrate', 15)]],
     485: ['Torche', [F('typeUp', 25, { t: 10 }), F('pure', 1)]], 486: ['Début Calme', [F('slowStart', 60), F('hp', 25)]],
     487: ['Monde Distorsion', [F('infiltrate', 40), F('endure', 1), F('hp', 15)]], 488: ['Croissant Lunaire', [F('regen', 6), F('cleanseTurn', 1)]],
     638: ['Justicier d’Acier', [F('bulwark', 15), F('aura', 8)]], 639: ['Justicier de Pierre', [F('hp', 15), F('dmgUp', 15)]],
@@ -1624,7 +1624,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     898: ['Unité Royale', [F('aura', 15), F('regen', 4), F('cleanseTurn', 1)]], 905: ['Charme Ardent', [F('intimidate', 1, { stat: 'atk' }), F('dmgUp', 15)]],
     1001: ['Tablettes du Fléau', [F('intimidate', 1, { stat: 'atk' }), F('bulwark', 10)]], 1002: ['Épée du Fléau', [F('intimidate', 1, { stat: 'def' }), F('crit', 15)]],
     1003: ['Urne du Fléau', [F('intimidate', 1, { stat: 'spa' }), F('hp', 20)]], 1004: ['Perles du Fléau', [F('intimidate', 1, { stat: 'spd' }), F('typeUp', 25, { t: 10 })]],
-    1007: ['Pouls Orichalque', [F('typeUp', 25, { t: 10 }), F('dmgUp', 25), F('presence', 30)]], 1008: ['Moteur Hadron', [F('typeUp', 25, { t: 13 }), F('dmgUp', 25), F('presence', 30)]],
+    1007: ['Pouls Orichalque', [F('typeUp', 25, { t: 2 }), F('dmgUp', 25), F('presence', 30)]], 1008: ['Moteur Hadron', [F('typeUp', 25, { t: 13 }), F('dmgUp', 25), F('presence', 30)]],
     1014: ['Chaîne Toxique', [F('statusAura', 30, { ail: 5 }), F('dmgUp', 10)]], 1015: ['Chaîne Toxique', [F('statusAura', 30, { ail: 5 }), F('hp', 10)]],
     1016: ['Chaîne Toxique', [F('statusAura', 30, { ail: 5 }), F('speed', 10)]], 1017: ['Masque Embrasé', [F('crit', 20), F('firstStrike', 25)]],
     1024: ['Téra-Morphose', [F('teamDr', 15), F('aura', 12), F('shieldStart', 15)]],
@@ -1634,11 +1634,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const UNIQUE_FX = {
     146: F('rebirth', 30), 377: F('shieldStart', 10), 652: F('teamDr', 8), 1020: F('statusAura', 15, { ail: 4 }), 378: F('timeLock', 80),
     243: F('firstStrike', 20), 807: F('crit', 10), 251: F('rebirth', 25), 488: F('teamDr', 8), 490: F('copy', 8), 649: F('infiltrate', 15),
-    658: F('crit', 10), 795: F('doubleTurn', 8), 897: F('infiltrate', 15), 1005: F('lifelink', 10), 706: F('regen', 2), 645: F('aoeUp', 15),
+    658: F('crit', 10), 795: F('doubleTurn', 8), 897: F('infiltrate', 15), 1005: F('lifelink', 10), 706: F('regen', 2), 645: F('typeUp', 15, { t: 5 }),
     905: F('timeLock', 60), 379: F('thorns', 10), 481: F('aura', 8), 386: F('doubleTurn', 12), 637: F('statusAura', 20, { ail: 4 }), 987: F('aoeUp', 15),
     389: F('hp', 10), 482: F('speed', 10), 1017: F('execute', 20), 638: F('teamDr', 8), 784: F('thorns', 10), 648: F('statusAura', 15, { ail: 2 }),
     911: F('statusAura', 15, { ail: 4 }), 992: F('endure', 1), 1006: F('execute', 15), 1021: F('aoeUp', 15), 798: F('execute', 20), 892: F('firstStrike', 20),
-    908: F('speed', 10), 894: F('doubleTurn', 12), 984: F('aoeUp', 15), 991: F('lifelink', 10),
+    908: F('speed', 10), 894: F('doubleTurn', 12), 984: F('thorns', 12), 991: F('lifelink', 10),
   };
   PASSIVE_TABLE[647] = ['Résolution', [F('dmgUp', 15), F('execute', 20)]]; // Keldeo
   PASSIVE_TABLE[489] = ['Hydratation', [F('regen', 3), F('pure', 1)]]; // Phione
@@ -1688,8 +1688,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // form : clé de forme ultime ('mega:0', 'mega:1', 'gmax'), 'base' (sans forme ultime) ou absent (toujours).
   const HERO = [
     { sid: 6, form: 'mega:0', n: 'Flamme Bleue Draconique', fx: [F('dmgUp', 30), F('crit', 15), F('lifelink', 12), F('moxie', 10)] },
-    { sid: 6, form: 'mega:1', n: 'Soleil de Feu', fx: [F('typeUp', 35, { t: 10 }), F('aoeUp', 25), F('statusAura', 35, { ail: 4 }), F('firstStrike', 30)] },
-    { sid: 6, form: 'gmax', n: 'Fournaise G-Max', fx: [F('aoeUp', 30), F('dmgUp', 20), F('statusAura', 40, { ail: 4 }), F('hp', 15)] },
+    { sid: 6, form: 'mega:1', n: 'Soleil de Feu', fx: [F('typeUp', 35, { t: 10 }), F('dmgUp', 20), F('statusAura', 35, { ail: 4 }), F('firstStrike', 30)] },
+    { sid: 6, form: 'gmax', n: 'Fournaise G-Max', fx: [F('typeUp', 30, { t: 10 }), F('dmgUp', 20), F('statusAura', 40, { ail: 4 }), F('hp', 15)] },
     { sid: 94, form: 'gmax', n: 'Hantise Gigamax', fx: [F('infiltrate', 40), F('timeLock', 150), F('dmgUp', 25), F('statusAura', 25, { ail: 2 }), F('doubleTurn', 15)] },
     { sid: 248, form: 'mega:0', n: 'Tyran des Sables', fx: [F('bulwark', 25), F('thorns', 30), F('dmgUp', 25), F('aoeUp', 20), F('teamDr', 10)] },
     { sid: 248, form: 'base', n: 'Carapace de Roche', fx: [F('hp', 15), F('thorns', 10), F('dmgUp', 10)] },
