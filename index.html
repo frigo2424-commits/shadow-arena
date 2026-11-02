@@ -2901,6 +2901,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     // Réduction étalée (les fractions de Balls passent au palier suivant), mais aucun palier ne reste vide : un palier
     // sans rien reçoit d'avance la Ball la plus entamée, et le dernier palier de la série solde les restes.
     const last = a.tiers.length - 1;
+    { const oc = {}; a.oldEmpty = []; a.tiers.forEach(([, r], idx) => { if (r.exact) return; let any = false;
+      for (const [k, v] of Object.entries(r.tickets || {})) { oc[k] = (oc[k] || 0) + v * (BALL_CUT[k] || 1); const g = Math.floor(oc[k] + 1e-9); if (g) { any = true; oc[k] -= g; } }
+      if (!any && !Math.round((r.gems || 0) * GEM_CUT / 5)) a.oldEmpty.push(idx); }); }
     a.tiers = a.tiers.map(([n, r, l], idx) => {
       const t = {};
       if (r.exact) return [n, { tickets: Object.assign({}, r.tickets), gems: Math.round((r.gems || 0) * GEM_CUT / 5) * 5, items: r.items }, l];
@@ -3496,6 +3499,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // avec cette version redevient disponible une fois (le Pokémon reçu reste acquis, le succès ne se recompte pas).
   // Ancien Sanctuaire Ultime à 10 sous-niveaux : progression et succès remis à zéro pour les 2 nouveaux autels.
   function migrateAltars() { if (S.dgV === 2) return; S.dungeons.ultime = 0; S.altars = {}; if (S.ach) S.ach.dg_ultime = 0; if (S.achSeen) delete S.achSeen.dg_ultime; if (S.dungeonsBoss) delete S.dungeonsBoss.ultime; S.dgV = 2; }
+  // Rattrapage : les paliers de succès récupérés quand l'ancien calcul les laissait vides sont crédités une fois.
+  function migrateAchFix() {
+    if (S.achFix === 1) return; S.achFix = 1; if (!S.ach) return;
+    const got = { tickets: {}, gems: 0 }; let n = 0;
+    for (const a of ACHIEVEMENTS) for (const idx of a.oldEmpty || []) if (idx < (S.ach[a.id] || 0)) {
+      const r = a.tiers[idx][1]; n++; got.gems += r.gems || 0; for (const [k, v] of Object.entries(r.tickets || {})) got.tickets[k] = (got.tickets[k] || 0) + v; }
+    if (n) { applyLoot(got); S.achComp = Object.assign({ n }, got); }
+  }
   function migrateSecret() { if (S.secret && S.secretV !== 2) { S.secretPrev = S.secret; delete S.secret; } S.secretV = 2; }
   function claimSecret(sid) {
     if (S.secret || !SECRET_CHOICES.includes(sid)) return null;
@@ -3514,13 +3525,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
     if (!snap || !snap.state) return false;
     try { S = Object.assign(fresh(), JSON.parse(snap.state)); localStorage.setItem(KEY, snap.state); localStorage.setItem(SAVED_AT, String(snap.at || Date.now())); } catch (e) { return false; }
-    migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); arenaRefresh(); return true;
+    migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); arenaRefresh(); return true;
   }
   const exportCode = () => 'PSA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(snapshot()))));
   function importCode(code) {
@@ -4980,6 +4991,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   let hubPage = 0;
   function hub() {
     if (!S().started) return intro();
+    const comp = S().achComp; if (comp) { delete S().achComp; G.save(); setTimeout(() => modal(`<div class="notice"><span class="kicker">Rattrapage des succès</span><h2>🎁 ${comp.n} palier${comp.n > 1 ? 's' : ''} crédité${comp.n > 1 ? 's' : ''}</h2><p class="muted small">Ces paliers ne t’avaient rien donné à cause d’une erreur de calcul, désormais corrigée.</p><div class="loot big-loot">${lootHtml(comp)}</div><div class="row end"><button class="btn primary" data-close>Merci !</button></div></div>`, null, { cls: 'center' }), 400); }
     const team = teamMons(), lead = team[0];
     const s = S(), tier = G.tierOf(s.arena.rating);
     const done = Object.keys(s.campaign).length;
