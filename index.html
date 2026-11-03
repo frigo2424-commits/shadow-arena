@@ -1661,6 +1661,16 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   };
   PASSIVE_TABLE[647] = ['Résolution', [F('dmgUp', 15), F('execute', 20)]]; // Keldeo
   PASSIVE_TABLE[489] = ['Hydratation', [F('regen', 3), F('pure', 1)]]; // Phione
+  // Passifs plus variés : le « +X % de dégâts » générique devient une mécanique dans le style du type principal.
+  //  Spectre, Psy : marque · Ténèbres : s'emballe sur K.O. · Insecte, Poison : saignement sur critique ·
+  //  Combat, Feu, Dragon : dernier rempart · Vol, Électrik : esquive · Acier, Roche : bouclier sur critique.
+  const PASSIVE_STYLE = { 8: ['markOnHit', 0.8], 14: ['markOnHit', 0.7], 17: ['killRush', 2], 7: ['bleedOnCrit', 0.2], 4: ['bleedOnCrit', 0.2], 2: ['lastStand', 2],
+    10: ['lastStand', 1.6], 16: ['lastStand', 1.5], 3: ['evade', 0.6], 13: ['evade', 0.5], 9: ['critShield', 0.6], 6: ['critShield', 0.6] };
+  for (const [id, entry] of Object.entries(PASSIVE_TABLE)) {
+    const s0 = sp(+id), st = s0 && PASSIVE_STYLE[s0.t[0]]; if (!st || !Array.isArray(entry)) continue;
+    const fx = entry[1], i = fx.findIndex(e => e.k === 'dmgUp'); if (i < 0) continue;
+    fx[i] = F(st[0], Math.max(2, Math.round(fx[i].v * st[1])));
+  }
   for (const [id, e] of Object.entries(UNIQUE_FX)) if (PASSIVE_TABLE[id]) PASSIVE_TABLE[id][1].push(e);
   const STAT_FR2 = { atk: 'Attaque', def: 'Défense', spa: 'Atq. Spé', spd: 'Déf. Spé', spe: 'Vitesse' };
   const AIL_VERB = { 1: 'paralyser', 2: 'endormir', 3: 'geler', 4: 'brûler', 5: 'empoisonner' };
@@ -1700,6 +1710,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       case 'infiltrate': return `ignore ${v} % de la défense adverse, les boucliers et la couverture des lignes`;
       case 'migraine': return `son attaque de base a ${v} % de chances de libérer une migraine psychique qui met K.O. sur le coup (un boss perd 25 % de ses PV max)`;
       case 'doubleTurn': return `${v} % de chances de rejouer presque aussitôt après avoir agi`;
+      case 'lastStand': return `+${v} % de dégâts quand il lui reste moins de 35 % de PV`;
+      case 'evade': return `${v} % de chances d’esquiver les attaques ciblées`;
+      case 'killRush': return `chaque ennemi mis K.O. lui rend ${v} % de jauge d’action`;
+      case 'markOnHit': return `ses attaques marquent la cible : elle subit +${v} % de dégâts pendant 2 tours`;
+      case 'bleedOnCrit': return `ses coups critiques font saigner la cible (${v} % de ses PV max par tour, 2 tours)`;
+      case 'critShield': return `chaque coup critique lui donne un bouclier de ${v} % de ses PV max`;
     }
     return '';
   }
@@ -1731,6 +1747,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const [name, fx] = PASSIVE_TABLE[fin], { rel } = stageInfo(sid);
     const scale = sid === fin ? 1 : 0.5 + 0.25 * Math.round(rel * 2);
     const eff = fx.filter(e => scale >= 1 || !BINARY.has(e.k) || scale >= 0.75).map(e => Object.assign({}, e, { v: BINARY.has(e.k) ? e.v : Math.max(1, Math.round(e.v * scale)) }));
+    // Cohérence avec le kit : un bonus de zone sans attaque de zone devient un bonus de dégâts (2/3 de sa valeur).
+    const kit = skillsOf(sid);
+    for (let i = 0; i < eff.length; i++) if (eff[i].k === 'aoeUp' && !kit.some(x => x.pow && x.target === 'all')) eff[i] = F('dmgUp', Math.max(1, Math.round(eff[i].v * 2 / 3)));
     return [{ n: name + (scale < 1 ? ' (en éveil)' : ''), d: cap(eff.map(fxText).join(' ; ')) + '.', fx: eff }];
   }
 
@@ -1750,17 +1769,23 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       [R('strike', 'strike', P => ({ target: 'enemy', pow: P(55), fx: true })), R('double', 'double', P => ({ target: 'enemy', pow: P(36), hits: [2, 2] })),
         R('pierceS', 'pierce', P => ({ target: 'enemy', pow: P(50), pierce: 30 })), R('quick', 'quick', P => ({ target: 'enemy', pow: P(44), selfAp: 200 }), fast),
         R('leech', 'leech', P => ({ target: 'enemy', pow: P(50), drain: 30 })), R('execS', 'exec', P => ({ target: 'enemy', pow: P(48), exec: 35 })),
-        R('sniper', 'snipe', P => ({ target: 'enemy', pow: P(46), aim: 'back' }), sniper)],
+        R('sniper', 'snipe', P => ({ target: 'enemy', pow: P(46), aim: 'back' }), sniper),
+        R('chainS', 'chain', P => ({ target: 'enemy', pow: P(42), chain: 1 })), R('rend', 'bleed', P => ({ target: 'enemy', pow: P(44), bleed: [3, 3] })), R('markS', 'mark', P => ({ target: 'enemy', pow: P(46), mark: [15, 2] }))],
       [R('break', 'multi', P => ({ target: 'enemy', pow: P(85), stat: [[2, -1], [4, -1]], statChance: 70 })), R('triple', 'triple', P => ({ target: 'enemy', aim: 'spread', pow: P(30), hits: [3, 3] })),
         R('critS', 'crit', P => ({ target: 'enemy', pow: P(80), critUp: 35 })), R('armor', 'pierce', P => ({ target: 'enemy', pow: P(72), pierce: 55 })),
         R('sweep', 'aoe', P => ({ target: 'all', pow: P(62), fx: true, fxBoost: 15 })), R('weaken', 'multi', P => ({ target: 'enemy', pow: P(78), stat: [[1, -1], [3, -1]], statChance: 80 })),
         R('rush', 'quick', P => ({ target: 'enemy', pow: P(70), selfAp: 300 }), fast), R('assassin', 'snipe', P => ({ target: 'enemy', pow: P(74), aim: 'back', critUp: 20 }), sniper),
-        R('hunter', 'snipe', P => ({ target: 'enemy', pow: P(76), aim: 'strong', pierce: 20 }), hunterOk)],
+        R('hunter', 'snipe', P => ({ target: 'enemy', pow: P(76), aim: 'strong', pierce: 20 }), hunterOk),
+        R('stormChain', 'chain', P => ({ target: 'enemy', pow: P(64), chain: 2 })), R('shatterS', 'shatter', P => ({ target: 'enemy', pow: P(76), shatter: 40, stat: [[2, -1]], statChance: 50 })),
+        R('stalk', 'stalk', P => ({ target: 'enemy', pow: P(72), onKill: true, exec: 20 })), R('thief', 'steal', P => ({ target: 'enemy', pow: P(72), steal: true, critUp: 15 }))],
       [R('nuke', 'nuke', P => ({ target: 'enemy', pow: P(135), crit: true })), R('blast', 'aoe', P => ({ target: 'all', pow: P(100) })),
         R('execute', 'exec', P => ({ target: 'enemy', pow: P(115), exec: 70 })), R('barrage', 'barrage', P => ({ target: 'enemy', aim: 'spread', pow: P(42), hits: [4, 4] })),
         R('speedNuke', 'speed', P => ({ target: 'enemy', pow: P(125), scale: 'spe' }), fast), R('reckless', 'reckless', P => ({ target: 'enemy', pow: P(165), drain: -25 })),
         R('vampNuke', 'leech', P => ({ target: 'enemy', pow: P(110), drain: 45 })), R('meteorRain', 'spread', P => ({ target: 'enemy', pow: P(58), aim: 'spread', hits: [3, 3] })),
-        R('headhunt', 'snipe', P => ({ target: 'enemy', pow: P(120), aim: 'strong', crit: true }), hunterOk)],
+        R('headhunt', 'snipe', P => ({ target: 'enemy', pow: P(120), aim: 'strong', crit: true }), hunterOk),
+        R('rampage', 'ramp', P => ({ target: 'enemy', pow: P(115), ramp: 20 })), R('berserk', 'rage', P => ({ target: 'enemy', pow: P(118), rage: 70 })),
+        R('guillotine', 'exec', P => ({ target: 'enemy', pow: P(112), exec: 40, onKill: true })), R('tempest', 'chain', P => ({ target: 'enemy', pow: P(98), chain: 3 })),
+        R('hemorrhage', 'bleed', P => ({ target: 'all', pow: P(78), bleed: [3, 2] }))],
     ],
     tank: [
       [R('guardS', 'strike', P => ({ target: 'enemy', pow: P(45), stat: [[2, 1]], statChance: 35, statSelf: true, fx: true })), R('bodyS', 'body', P => ({ target: 'enemy', pow: P(50), scale: 'def' }), bulky),
@@ -1768,11 +1793,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         R('provS', 'taunt', P => ({ target: 'enemy', pow: P(40), taunt: 1 })), R('slowS', 'body', P => ({ target: 'enemy', pow: P(45), stat: [[5, -1]], statChance: 50 }))],
       [R('taunt', 'taunt', () => ({ c: 1, target: 'taunt', taunt: 2, stat: [[2, 1], [4, 1]] })), R('wall', 'guard', () => ({ c: 1, target: 'self', shield: 14, stat: [[2, 1]] })),
         R('tauntRegen', 'taunt', () => ({ c: 1, target: 'taunt', taunt: 2, regen: 8, regenTo: 'self' })), R('roar', 'taunt', P => ({ target: 'all', pow: P(40), taunt: 1, stat: [[1, -1]], statChance: 50 })),
-        R('bastion', 'guard', () => ({ c: 1, target: 'allies', stat: [[2, 1], [4, 1]], shield: 8 })), R('charge', 'body', P => ({ target: 'enemy', pow: P(72), aim: 'mid', taunt: 1 }))],
+        R('bastion', 'guard', () => ({ c: 1, target: 'allies', stat: [[2, 1], [4, 1]], shield: 8 })), R('charge', 'body', P => ({ target: 'enemy', pow: P(72), aim: 'mid', taunt: 1 })),
+        R('brand', 'mark', P => ({ target: 'enemy', pow: P(58), taunt: 1, mark: [15, 2] }))],
       [R('bulwark', 'guard', P => ({ target: 'enemy', pow: P(78), shield: 12, guard: true })), R('slam', 'body', P => ({ target: 'enemy', pow: P(95), scale: 'def', teamStat: [[2, 1]] }), bulky),
         R('quake', 'aoe', P => ({ target: 'all', pow: P(70), scale: 'hp' }), hpTank), R('fortress', 'guard', P => ({ target: 'all', pow: P(55), teamStat: [[2, 1], [4, 1]], taunt: 2 })),
         R('stone', 'body', P => ({ target: 'all', pow: P(65), shieldSelf: 15, stat: [[5, -1]], statChance: 50 })),
-        R('avalanche', 'aoe', P => ({ target: 'all', pow: P(70), flinch: 25, guard: true }))],
+        R('avalanche', 'aoe', P => ({ target: 'all', pow: P(70), flinch: 25, guard: true })), R('earthbreaker', 'shatter', P => ({ target: 'all', pow: P(64), shatter: 40, taunt: 1 }))],
     ],
     heal: [
       [R('mend', 'strike', P => ({ target: 'enemy', pow: P(42), allyHeal: 7 })), R('purge', 'strike', P => ({ target: 'enemy', pow: P(42), cleanseLow: true, fx: true })),
@@ -1793,20 +1819,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         R('confuse', 'ctrl', () => ({ c: 1, target: 'enemy', stat: [[1, -1], [3, -1]], apPush: 200, acc: 95 })), R('silence', 'ctrl', () => ({ c: 1, target: 'enemy', aim: 'strong', ailCtrl: 100, acc: 90, apPush: 120 }), mindOk)],
       [R('wave', 'push', P => ({ target: 'all', pow: P(72), apPush: 300 })), R('storm', 'aoe', P => ({ target: 'all', pow: P(62), ailCtrl: 35 })),
         R('time', 'push', P => ({ target: 'enemy', pow: P(110), apPush: 600, stat: [[5, -1]], statChance: 100 })), R('void', 'dispel', P => ({ target: 'all', pow: P(58), dispel: true, apPush: 150 })),
-        R('frost', 'push', P => ({ target: 'all', pow: P(55), stat: [[5, -1]], statChance: 100, apPush: 200 }))],
+        R('frost', 'push', P => ({ target: 'all', pow: P(55), stat: [[5, -1]], statChance: 100, apPush: 200 })), R('thunderChain', 'chain', P => ({ target: 'enemy', pow: P(82), chain: 3, ailCtrl: 30 }))],
     ],
     sup: [
       [R('taint', 'strike', P => ({ target: 'enemy', pow: P(45), statRand: true, statChance: 35 })), R('cheer', 'strike', P => ({ target: 'enemy', pow: P(42), apBoost: 60 })),
         R('strip', 'dispel', P => ({ target: 'enemy', pow: P(44), dispel: true, dispelChance: 40 })), R('mark', 'strike', P => ({ target: 'enemy', pow: P(44), stat: [[2, -1]], statChance: 50 })),
         R('harmony', 'regen', P => ({ target: 'enemy', pow: P(40), regen: 3, regenTo: 'team' })), R('flank', 'snipe', P => ({ target: 'enemy', pow: P(42), aim: 'mid', stat: [[5, -1]], statChance: 40 })),
-        R('expose', 'snipe', P => ({ target: 'enemy', pow: P(40), aim: 'back', stat: [[2, -1], [4, -1]], statChance: 60 }), sniper)],
+        R('expose', 'snipe', P => ({ target: 'enemy', pow: P(40), aim: 'back', stat: [[2, -1], [4, -1]], statChance: 60 }), sniper), R('brandS', 'mark', P => ({ target: 'enemy', pow: P(42), mark: [15, 2] }))],
       [R('buffAtk', 'buff', () => ({ c: 1, target: 'allies', stat: [[1, 1], [3, 1]] })), R('buffSpe', 'buff', () => ({ c: 1, target: 'allies', stat: [[5, 1], [1, 1]] })),
         R('buffDef', 'buff', () => ({ c: 1, target: 'allies', stat: [[2, 1], [4, 1]] })), R('tempo', 'quick', () => ({ c: 1, target: 'allies', stat: [[5, 1]], cdReduce: 1 })),
         R('rally', 'regen', () => ({ c: 1, target: 'allies', stat: [[1, 1]], regen: 6, regenTo: 'team' })),
         R('arcane', 'buff', () => ({ c: 1, target: 'allies', stat: [[3, 1], [5, 1]] }))],
       [R('curse', 'debuff', () => ({ c: 1, target: 'debuffAll', stat: [[2, -1], [4, -1]], apBoost: 250, acc: 95 })), R('anthem', 'buff', () => ({ c: 1, target: 'allies', stat: [[1, 1], [3, 1], [5, 1]], apBoost: 200 })),
         R('unmake', 'dispel', () => ({ c: 1, target: 'debuffAll', stat: [[1, -1], [3, -1]], dispel: true, acc: 95 })), R('renew', 'buff', () => ({ c: 1, target: 'allies', stat: [[2, 1], [4, 1]], cleanse: true, apBoost: 150 })),
-        R('warcry', 'buff', () => ({ c: 1, target: 'allies', stat: [[1, 1], [3, 1]], cdReduce: 1, apBoost: 150 }))],
+        R('warcry', 'buff', () => ({ c: 1, target: 'allies', stat: [[1, 1], [3, 1]], cdReduce: 1, apBoost: 150 })), R('doom', 'mark', () => ({ c: 1, target: 'debuffAll', mark: [20, 2], stat: [[2, -1]], acc: 95 }))],
     ],
   };
   // Mots d'ouverture propres à chaque genre de recette.
@@ -1815,6 +1841,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     quick: ['Éclair', 'Vif-Élan', 'Sprint'], leech: ['Vampirisme', 'Siphon', 'Morsure'], exec: ['Exécution', 'Coup de Grâce', 'Curée'], crit: ['Frappe Précise', 'Point Vital', 'Coup Juste'],
     speed: ['Comète', 'Vitesse', 'Fulgurance'], reckless: ['Sacrifice', 'Kamikaze', 'Charge Folle'], body: ['Masse', 'Bélier', 'Colosse'], revive: ['Renaissance', 'Résurrection', 'Second Souffle'],
     regen: ['Source', 'Sève', 'Rosée'], dispel: ['Annulation', 'Purge', 'Néant'], push: ['Onde', 'Distorsion', 'Contretemps'],
+    chain: ['Chaîne', 'Arc', 'Ricochet'], bleed: ['Lacération', 'Entaille', 'Hémorragie'], mark: ['Marque', 'Sceau', 'Stigmate'], shatter: ['Fracas', 'Brise-Bouclier', 'Éclatement'],
+    stalk: ['Traque', 'Chasse', 'Prédation'], steal: ['Larcin', 'Rapine', 'Chapardage'], ramp: ['Crescendo', 'Ascension', 'Escalade'], rage: ['Rage', 'Furie', 'Berserk'],
   };
   const pickSalt = (arr, s, salt, n) => { const ok = arr.filter(r => !r.cond || r.cond(s)); const base = ok.length ? ok : arr; return base[hash(salt, n) % base.length]; };
   const HEAL_OFF_K = 3; // soins selon l'Attaque / Atq. Spé : % de la stat (calibré sur les PV moyens d'une cible)
@@ -1864,6 +1892,35 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     ['quick', k => !k.selfAp, k => { k.selfAp = 100; }],
   ];
   const TYPE_AIL = { 10: 4, 4: 5, 13: 1, 15: 3, 12: 5, 8: 2, 14: 2 };
+  // Style de combat propre à chaque type (inspiré des héros de Summoners War / Raid / Dislyte) : la compétence II
+  // reçoit une mécanique du style de son type principal, l'ultime des Légendaires, Fabuleux et Mythiques une ou deux.
+  //  Normal : montée en puissance, précision · Combat : rejoue sur K.O., brise-bouclier · Vol : rejoue, vitesse ·
+  //  Poison : saignement, marque · Sol / Roche / Glace : brise-bouclier · Insecte : saignement, ricochet ·
+  //  Spectre / Psy / Fée : marque, vol de bonus · Acier : brise-bouclier, montée · Feu : saignement, rage ·
+  //  Eau / Électrik : ricochet, recul · Plante : saignement, drain · Dragon : montée, rage · Ténèbres : rejoue, marque.
+  const TYPE_STYLE = { 1: ['ramp', 'crit'], 2: ['onKill', 'shatter'], 3: ['onKill', 'quick'], 4: ['bleed', 'mark'], 5: ['shatter', 'slow'], 6: ['shatter', 'flinch'],
+    7: ['bleed', 'chain'], 8: ['mark', 'steal'], 9: ['shatter', 'ramp'], 10: ['bleed', 'rage'], 11: ['chain', 'push'], 12: ['bleed', 'drain'], 13: ['chain', 'push'],
+    14: ['steal', 'mark'], 15: ['shatter', 'slow'], 16: ['ramp', 'rage'], 17: ['onKill', 'mark'], 18: ['steal', 'mark'] };
+  const single1 = k => k.target === 'enemy' && !k.hits;
+  const STYLE = {
+    ramp: [k => !k.ramp && k.target === 'enemy', k => { k.ramp = 15; }], crit: [k => !k.crit, k => { k.critUp = (k.critUp || 0) + 15; }],
+    onKill: [k => !k.onKill && single1(k), k => { k.onKill = true; }], shatter: [k => !k.shatter, k => { k.shatter = 35; }],
+    quick: [k => !k.selfAp, k => { k.selfAp = 150; }], bleed: [k => !k.bleed, k => { k.bleed = [3, 2]; }],
+    mark: [k => !k.mark && !k.hits, k => { k.mark = [12, 2]; }], slow: [k => !k.stat, k => { k.stat = [[5, -1]]; k.statChance = 50; }],
+    flinch: [k => !k.flinch, k => { k.flinch = 25; }], chain: [k => !k.chain && single1(k) && !k.aim, k => { k.chain = 1; }],
+    push: [k => !k.apPush, k => { k.apPush = 120; }], drain: [k => !k.drain, k => { k.drain = 15; }],
+    steal: [k => !k.steal && k.target === 'enemy', k => { k.steal = true; }], rage: [k => !k.rage && k.target === 'enemy', k => { k.rage = 40; }],
+  };
+  function addStyle(k, t, salt) { const o = TYPE_STYLE[t] || ['crit']; for (let j = 0; j < o.length; j++) { const id = o[(salt + j) % o.length]; if (STYLE[id][0](k)) { STYLE[id][1](k); return id; } } return null; }
+  // Puissance visée par rôle et par rareté (forme finale, bonus d'évolution compris) : chaque rareté est nettement au-dessus
+  // de la précédente. Les kits sont recalés sur cette cible (± la variation propre à l'espèce).
+  const RAR_TARGET = { N: 0.9, R: 0.97, E: 1.05, L: 1.17, F: 1.29, M: 1.42 };
+  // Références mesurées sur les Normaux, Rares et Épiques (score de kit ÷ rareté) : elles ne changent pas leur puissance.
+  const ROLE_DMG = { dps: 314, tank: 186, heal: 61, ctrl: 221, sup: 56 };
+  const ROLE_HEAL = { heal: 116 };
+  const dmgW = k => (k.target === 'all' ? 1.6 : k.hits ? k.hits[0] * (k.aim === 'spread' ? 0.85 : 1.2 / Math.sqrt(k.hits[0])) : 1) * (k.chain ? 1 + 0.45 * k.chain : 1) * (k.bleed ? 1.1 : 1) * (k.onKill ? 1.08 : 1);
+  const healW = k => (k.heal || 0) * (k.target === 'healAll' ? 2.2 : 1) + (k.shield || 0) * 1.5 + (k.regen || 0) * (k.regenTo === 'team' ? 6 : 3) + (k.revive || 0) * 0.5;
+  A.kitScore = (kit, evo) => { const e = i => 1 + ((evo && evo[i]) || 0) / 100; return { dmg: kit.reduce((a, k, i) => a + (k.pow ? k.pow * dmgW(k) * e(i) : 0), 0), heal: kit.reduce((a, k, i) => a + healW(k) * e(i), 0) }; };
   const speciesKeys = new Set();
   const cache = {};
   function skillsOf(sid) {
@@ -1919,6 +1976,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const key = role + ':' + out.map(k => k.recipe).join('/') + ':' + tags.join('/'); // unicité des mécaniques, quel que soit le type
       if (!speciesKeys.has(key) || salt === 39) { speciesKeys.add(key); kit.splice(0, 3, ...out); break; }
     }
+    // Style du type sur la compétence II ; effets en plus sur l'ultime selon la rareté (Légendaire 1, Fabuleux et Mythique 2).
+    { const k1 = kit[1].pow ? kit[1] : kit.find(k => k.pow); if (k1) addStyle(k1, t1, hash(sid, 3)); }
+    { const xtra = { L: 1, F: 2, M: 2 }[rar] || 0, u = kit[2];
+      if (xtra && u.pow) { addStyle(u, t2, hash(sid, 4)); if (xtra > 1) addStyle(u, t1 === t2 ? (s.t[1] || 16) : t1, hash(sid, 5)); }
+      else if (xtra && !u.pow) { if (!u.apBoost) u.apBoost = 100 * xtra; if (xtra > 1 && !u.cdReduce && (u.target === 'allies' || u.target === 'healAll')) u.cdReduce = 1; } }
     // Spécialités de stat : un Pokémon dont la Vitesse, les PV ou la Défense dominent son offensive frappe avec cette
     // stat sur l'une de ses compétences (s'il n'en a pas déjà une) : les rapides et les endurants en tirent parti.
     if (!kit.some(k => k.scale)) {
@@ -1971,6 +2033,16 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         else { k.healStat = b[1] > b[3] ? 'atk' : 'spa'; k.heal = Math.round(k.heal * HEAL_OFF_K); }
       }
     }
+    // Recalage de la puissance sur la cible de sa rareté et de son rôle (bonus d'évolution à venir compris).
+    baseCache[sid] = kit.map(k => Object.assign({}, k)); // provisoire : sert à choisir les bonus d'évolution
+    if (!globalThis.NO_NORM) {
+      const evo = {}; for (const bo of evoBonuses(sid)) if (bo.kind === 'skill') evo[bo.slot] = (evo[bo.slot] || 0) + bo.pct;
+      const sc = A.kitScore(kit, evo), stage = (0.86 + 0.24 * stageInfo(sid).rel) / 1.1, v = 0.94 + (hash(sid, 98) % 13) / 100;
+      const td = ROLE_DMG[role] * RAR_TARGET[rar] * stage * v;
+      if (td && sc.dmg > 0) { const f = Math.min(1.4, Math.max(0.7, td / sc.dmg)); for (const k of kit) if (k.pow) k.pow = Math.round(k.pow * f); }
+      const th = (ROLE_HEAL[role] || 0) * RAR_TARGET[rar] * stage * v;
+      if (th && sc.heal > 0) { const f = Math.min(1.4, Math.max(0.7, th / sc.heal)); for (const k of kit) for (const x of ['heal', 'shield', 'regen', 'revive']) if (k[x]) k[x] = Math.max(1, Math.round(k[x] * f)); }
+    }
     baseCache[sid] = kit.map(k => Object.assign({}, k));
     // Bonus d'évolution : chaque évolution renforce une compétence (+15 %) ou une stat (+10 %).
     for (const bo of evoBonuses(sid)) if (bo.kind === 'skill') {
@@ -1993,6 +2065,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     }
     if (k.aim === 'strong' && !k.pow) parts.push('Vise l’ennemi à la plus forte Attaque ou Atq. Spé, où qu’il soit.');
     if (k.pierce) parts.push(`Ignore ${k.pierce} % de la défense de la cible.`);
+    if (k.chain) parts.push(`Rebondit ensuite sur ${k.chain} autre${k.chain > 1 ? 's' : ''} ennemi${k.chain > 1 ? 's' : ''} au hasard (60 % de la puissance, puis −20 % à chaque rebond).`);
+    if (k.rage) parts.push(`Jusqu’à +${k.rage} % de dégâts selon les PV qu’il a perdus.`);
+    if (k.ramp) parts.push(`Monte en puissance : +${k.ramp} % à chaque utilisation (jusqu’à +${k.ramp * 3} %).`);
+    if (k.shatter) parts.push(`+${k.shatter} % de dégâts contre une cible sous bouclier, qu’elle a une chance sur deux de briser.`);
+    if (k.mark) parts.push(`Marque la cible : elle subit +${k.mark[0]} % de dégâts pendant ${k.mark[1]} tours.`);
+    if (k.bleed) parts.push(`Fait saigner la cible : ${k.bleed[0]} % de ses PV max par tour pendant ${k.bleed[1]} tours (cumulable).`);
+    if (k.steal) parts.push('Vole un bonus de la cible.');
+    if (k.onKill) parts.push('S’il met la cible K.O., il rejoue aussitôt (une fois par tour).');
     if (k.crit) parts.push('Taux de critique doublé.');
     if (k.critUp) parts.push(`+${k.critUp} % de chances de coup critique.`);
     if (k.exec) parts.push(`+${k.exec} % de dégâts contre une cible sous 50 % de PV.`);
@@ -2036,7 +2116,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Les stats de chaque lignée sont légèrement ajustées pour que la hiérarchie des raretés soit respectée :
   // aucun Normal ou Rare au-dessus du plus faible Légendaire ou Mythique, Épiques entre les deux,
   // Légendaires et Mythiques avec un bonus de base.
-  const RAR_STAT = { N: 1, R: 1.02, E: 1.05, L: 1.1, F: 1.13, M: 1.15 };
+  const RAR_STAT = { N: 1, R: +(globalThis.RS_R || 1.08), E: 1.05, L: 1.1, F: 1.13, M: 1.15 };
   function rawRating(sid) {
     const b = sp(sid).b, L = A.levelCap({ sid }), st = b.map((v, i) => i === 0 ? (2 * v + 31) * L / 100 + L + 10 : (2 * v + 31) * L / 100 + 5);
     const k = skillsOf(sid), pw = (k[0].pow || 40) + (k[2].pow || 40) * 0.5;
@@ -2108,8 +2188,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Kits propres à une forme ultime (remplacent des compétences de la forme de base, mêmes emplacements).
   const FORM_KIT = {
     // Méga-Dracaufeu Y : I Feu monocible, II Feu sur toute l'équipe adverse, III Dragon monocible très puissante.
-    '6:mega:1': { 1: { t: 10, target: 'all', pow: 92, cd: 3, stab: true, recipe: 'sweep', n: 'Canicule Solaire', ail: 4, ailChance: 30, aim: null, critUp: 0, flinch: 0 },
-      2: { t: 16, target: 'enemy', pow: 240, cd: 4, stab: false, recipe: 'headhunt', n: 'Draco-Météore Solaire', crit: true, aim: null, stat: null, statChance: 0 } },
+    '6:mega:1': { 1: { t: 10, target: 'all', pow: 92, cd: 3, stab: true, recipe: 'sweep', n: 'Canicule Solaire', ail: 4, ailChance: 30, replace: true },
+      2: { t: 16, target: 'enemy', pow: 240, cd: 4, stab: false, recipe: 'headhunt', n: 'Draco-Météore Solaire', crit: true, replace: true } },
   };
   A.skillsOfMon = mon => {
     const kit = skillsOf(mon.sid); if (!mon.form) return kit;
@@ -2117,7 +2197,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, c1 = A.formCat(mon), edit = FORM_KIT[key];
     if (c1 === c0 && !edit) return (formKits[key] = kit);
     return (formKits[key] = kit.map((k, i) => { const e = edit && edit[i]; if (!e && (!k.pow || k.scale || k.c !== c0 || c1 === c0)) return k;
-      const x = Object.assign({}, k, e || {}, k.pow && !k.scale && k.c === c0 ? { c: c1 } : {}); for (const f of Object.keys(x)) if (x[f] === null || x[f] === 0 && ['critUp', 'flinch', 'statChance', 'ailChance'].includes(f)) delete x[f];
+      // replace : la compétence de forme remplace entièrement celle de base (seuls l'emplacement et le bonus d'évolution restent).
+      const x = e && e.replace ? Object.assign({ slot: k.slot, c: c1, acc: 100, role: k.role, evoUp: k.evoUp }, e) : Object.assign({}, k, e || {}, k.pow && !k.scale && k.c === c0 ? { c: c1 } : {});
+      delete x.replace; for (const f of Object.keys(x)) if (x[f] === null || x[f] === 0 && ['critUp', 'flinch', 'statChance', 'ailChance'].includes(f)) delete x[f];
       x.d = describe(x) + (k.evoUp ? ` Renforcée par l’évolution (+${k.evoUp} %).` : ''); return x; }));
   };
   A.statMult = statMult;
@@ -2180,7 +2262,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (extra && extra.hpMult) u.maxHp = Math.round(u.maxHp * extra.hpMult); // boss à PV renforcés
     u.kos = 0; u.acts = 0; u.teamDr = 0; u.typeBoost = {};
     if (mon.shiny) { u.passives.shine = 1; u.shineGuard = true; } // éclat chromatique : +10 % de dégâts, 1er statut bloqué
-    u.hots = []; u.stats = { dealt: 0, taken: 0, healed: 0 };
+    u.hots = []; u.dots = []; u.mark = null; u.stats = { dealt: 0, taken: 0, healed: 0 };
     if (u.passives.presence) u.ap += u.passives.presence * 10;
     u.hp = u.maxHp;
     return u;
@@ -2342,6 +2424,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (P.overlord && b) dmg *= 1 + P.overlord * b.units.filter(x => x.side === u.side && !x.alive).length / 100;
     if (t.passives.multitype && tf > 1) dmg *= 1 - t.passives.multitype / 100;
     if (t.teamDr) dmg *= 1 - Math.min(40, t.teamDr) / 100;
+    // Nouvelles mécaniques : marque (dégâts subis +X %), rage (selon les PV manquants du lanceur), montée en puissance,
+    // dernier rempart (passif : sous 35 % de PV), brise-bouclier (bonus contre une cible protégée).
+    if (t.mark) dmg *= 1 + t.mark.v / 100;
+    if (sk.rage) dmg *= 1 + (1 - u.hp / u.maxHp) * sk.rage / 100;
+    if (sk.ramp && u.ramp && u.ramp[sk.slot]) dmg *= 1 + u.ramp[sk.slot] / 100;
+    if (P.lastStand && u.hp < u.maxHp * 0.35) dmg *= 1 + P.lastStand / 100;
+    if (sk.shatter && t.shield > 0) dmg *= 1 + sk.shatter / 100;
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
     if (b && covered(b, t) && !u.passives.infiltrate && !(sk.aim && sk.aim !== 'spread')) dmg *= single ? COVER[t.row] : AOE_FALL[t.row];
     if (b && b.turn - (b.rage0 || 0) > ENRAGE) dmg *= 1 + (b.turn - (b.rage0 || 0) - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
@@ -2398,7 +2487,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       t.hp += h; log.push({ k: 'heal', who: t.uid, amount: h });
       if (sk.cleanse || sk.target === 'heal') {
         const had = t.ail || t.buffs.some(x => x.mult < 1);
-        t.ail = null; if (sk.cleanse) t.buffs = t.buffs.filter(x => x.mult > 1);
+        t.ail = null; if (sk.cleanse) { t.buffs = t.buffs.filter(x => x.mult > 1); t.dots = []; t.mark = null; }
         if (had) log.push({ k: 'msg', txt: `${t.name} est purifié.` });
       }
     };
@@ -2427,7 +2516,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       for (const t of enemies) {
         if (rand() * 100 > sk.acc + 10 + (u.st.acc || 0)) { log.push({ k: 'miss', who: t.uid }); continue; }
         for (const [i, v] of sk.stat || []) if (STAT_IDX[i]) addBuff(t, STAT_IDX[i], v, log, 0, u);
+        if (sk.mark && (!t.mark || t.mark.v <= sk.mark[0])) t.mark = { v: sk.mark[0], turns: sk.mark[1] || 2 };
       }
+      if (sk.mark) log.push({ k: 'msg', txt: `L’équipe adverse est marquée (dégâts subis +${sk.mark[0]} %) !` });
     } else if (sk.c === 1) { // statut offensif (Toxik, Cage-Éclair, Groz'Yeux…)
       const t = single;
       aim([t], sk.ail ? 'status' : 'debuff');
@@ -2450,6 +2541,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       for (const t of targets) {
         if (!t || !t.alive) continue;
         if (rand() * 100 > Math.min(100, sk.acc + 10 + (u.st.acc || 0))) { log.push({ k: 'miss', who: t.uid }); continue; }
+        if (t.passives.evade && sk.target !== 'all' && rand() * 100 < t.passives.evade) { log.push({ k: 'miss', who: t.uid }); log.push({ k: 'msg', who: t.uid, txt: `${t.name} esquive !` }); continue; }
+        if (sk.shatter && t.shield > 0 && rand() < 0.5) { t.shield = 0; log.push({ k: 'msg', txt: `Le bouclier de ${t.name} vole en éclats !` }); }
         let total = 0, anyCrit = false, tf = 1;
         for (let h = 0; h < hits && t.alive; h++) {
           const r = damage(u, t, sk, hits > 1 ? 1 / Math.sqrt(hits) * 1.2 : spread ? 0.85 : 1, b, sk.target !== 'all' && !spread);
@@ -2460,7 +2553,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
           if (t.hp <= 0) break;
         }
         log.push({ k: 'dmg', who: t.uid, amount: total, crit: anyCrit, tf });
-        if (t.hp <= 0 && fall(b, t, log)) u.kos++;
+        const killed = t.hp <= 0 && fall(b, t, log); if (killed) u.kos++;
+        if (killed && sk.onKill && u.alive && !u.killTurn) { u.killTurn = true; u.apNext = 1000; log.push({ k: 'msg', who: u.uid, txt: `${u.name} rejoue aussitôt !` }); }
+        if (killed && u.passives.killRush && u.alive) { u.apNext = Math.max(u.apNext || 0, u.passives.killRush * 10); log.push({ k: 'msg', who: u.uid, txt: `${u.name} s’emballe !` }); }
+        if (t.alive && total > 0) {
+          const mk = sk.mark || (u.passives.markOnHit ? [u.passives.markOnHit, 2] : null);
+          if (mk && (!t.mark || t.mark.v <= mk[0])) { t.mark = { v: mk[0], turns: mk[1] || 2 }; log.push({ k: 'msg', who: t.uid, txt: `${t.name} est marqué (dégâts subis +${mk[0]} %) !` }); }
+          const bl = sk.bleed || (anyCrit && u.passives.bleedOnCrit ? [u.passives.bleedOnCrit, 2] : null);
+          if (bl) { (t.dots = t.dots || []).push({ pct: bl[0], turns: bl[1] || 3, src: u.uid }); log.push({ k: 'msg', who: t.uid, txt: `${t.name} saigne !` }); }
+          if (sk.steal) { const bf = t.buffs.find(x => x.mult > 1); if (bf) { t.buffs = t.buffs.filter(x => x !== bf); u.buffs.push(Object.assign({}, bf)); log.push({ k: 'msg', who: u.uid, txt: `${u.name} vole un bonus à ${t.name} !` }); } }
+        }
+        if (anyCrit && u.passives.critShield && u.alive) { u.shield = Math.max(u.shield, Math.round(u.maxHp * u.passives.critShield / 100)); u.shieldTurns = 2; }
         // Ensemble de runes Riposte : chance de contre-attaquer aussitôt avec la compétence I (pas de riposte en chaîne).
         if (!u.countering && t.alive && u.alive && total > 0 && t.st && t.st.counter > 0 && rand() * 100 < t.st.counter) {
           const k0 = t.skills.find(k => k.pow && k.c !== 1) || null;
@@ -2481,6 +2584,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         if (t.alive && sk.apPush) pushAp(t, sk.apPush, log);
         if (t.alive && sk.flinch && rand() * 100 < sk.flinch) { t.ap = Math.max(0, t.ap - 300); log.push({ k: 'msg', txt: `${t.name} recule !` }); }
       }
+      // Éclair en chaîne : rebondit sur d'autres ennemis (puissance réduite à chaque rebond).
+      if (sk.chain && single && u.alive) {
+        let prev = single, f = 0.6;
+        for (let j = 0; j < sk.chain; j++) {
+          const pool = foes(b, u).filter(x => x !== prev && x.alive); if (!pool.length) break;
+          const t = pool[Math.floor(rand() * pool.length)], r = damage(u, t, sk, f, b, false); let rest = r.dmg;
+          if (t.shield > 0) { const ab = Math.min(t.shield, rest); t.shield -= ab; rest -= ab; }
+          t.hp = Math.max(0, t.hp - rest); log.push({ k: 'dmg', who: t.uid, amount: r.dmg, crit: r.crit, tf: r.tf, chain: true });
+          if (j === 0) log.push({ k: 'msg', who: u.uid, txt: 'L’attaque rebondit !' });
+          if (t.hp <= 0 && fall(b, t, log)) u.kos++;
+          prev = t; f *= 0.8;
+        }
+      }
+      if (sk.ramp && u.alive) { u.ramp = u.ramp || {}; u.ramp[sk.slot] = Math.min(sk.ramp * 3, (u.ramp[sk.slot] || 0) + sk.ramp); }
       if (sk.allyHeal) { const a = alive(b, u.side).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { const h = Math.min(a.maxHp - a.hp, Math.round(a.maxHp * sk.allyHeal / 100 * hb)); a.hp += h; log.push({ k: 'heal', who: a.uid, amount: h }); } }
     }
     postEffects(b, u, sk, single, log);
@@ -2531,7 +2648,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     }
     if (sk.revive && (!sk.reviveMax || (u.revives || 0) < sk.reviveMax)) {
       const ko = b.units.find(x => x.side === u.side && !x.alive);
-      if (ko) { u.revives = (u.revives || 0) + 1; ko.alive = true; ko.hp = Math.round(ko.maxHp * sk.revive / 100); ko.ail = null; ko.buffs = []; ko.ap = 0; ko.shield = 0; ko.hots = []; log.push({ k: 'revive', who: ko.uid, txt: `${ko.name} revient au combat !` }); log.push({ k: 'heal', who: ko.uid, amount: ko.hp }); }
+      if (ko) { u.revives = (u.revives || 0) + 1; ko.alive = true; ko.hp = Math.round(ko.maxHp * sk.revive / 100); ko.ail = null; ko.buffs = []; ko.ap = 0; ko.shield = 0; ko.hots = []; ko.dots = []; ko.mark = null; log.push({ k: 'revive', who: ko.uid, txt: `${ko.name} revient au combat !` }); log.push({ k: 'heal', who: ko.uid, amount: ko.hp }); }
     }
     if (sk.teamStat) for (const a of allies) for (const [i, v] of sk.teamStat) if (STAT_IDX[i]) addBuff(a, STAT_IDX[i], v, log, 0, u);
     if (sk.cleanse && sk.target === 'allies') for (const a of allies) { a.ail = null; a.buffs = a.buffs.filter(x => x.mult > 1); }
@@ -2566,6 +2683,15 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       u.hots = u.hots.filter(x => --x.turns > 0);
     }
     for (let i = 0; i < 3; i++) if (u.cd[i] > 0 && !(skipped && false)) u.cd[i]--;
+    u.killTurn = false;
+    // Saignements : dégâts sur la durée (% des PV max), cumulables.
+    if (u.dots && u.dots.length && u.alive) {
+      const pct = Math.min(12, u.dots.reduce((a, x) => a + x.pct, 0)), h = Math.round(u.maxHp * pct / 100);
+      u.hp = Math.max(0, u.hp - h); log.push({ k: 'dmg', who: u.uid, amount: h, dot: 'SAI', src: u.dots[0].src });
+      u.dots = u.dots.filter(x => --x.turns > 0);
+      if (u.hp <= 0) fall(b, u, log);
+    }
+    if (u.mark && --u.mark.turns <= 0) u.mark = null;
     if (u.ail && u.alive) {
       if (u.ail.k === 'BRU' || u.ail.k === 'PSN') {
         const h = Math.round(u.maxHp * (u.ail.k === 'PSN' ? 0.08 : 0.06));
@@ -3585,12 +3711,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // sommet ; TOWER_FIX corrige chaque étage selon sa composition (soigneurs, thème…), réglé par simulation
   // (tools/arena-tower.js) pour qu'aucun étage ne fasse mur par rapport à ses voisins.
   // Étages 18, 31 et 36 allégés (×0,7) : Méga-Tyranocif, tank offensif à renvoi de dégâts, y pèse plus que ses stats.
-  const TOWER_CURVE = Object.assign([21, 38], globalThis.TOWER_CURVE || []);
-  const TOWER_FIX = globalThis.NO_TOWER_FIX ? [] : [0.968,1.001,1.34,1.291,1.476,1.098,1.153,1.356,1.619,1.37,1.228,1.217,1.495,1.525,1.555,1.455,1.323,0.751,1.376,1.1,0.807,0.977,1.183,0.973,0.714,0.771,1.003,1.114,0.841,1.004,0.914,1.41,1.339,1.405,1.296,0.695,0.89,0.809,1.286,1.535,1.048,0.981,1.294,1.339,1.405,1.19,1.303,1.057,0.882,0.825,0.944,1.004,0.953,1.223,1.211,0.997,0.988,1.196,1.057,1.032,0.791,0.783,0.776,0.603,0.615,0.835,0.827,0.616,0.714,1.057,0.712,0.887,0.957,0.788,0.748,0.68,0.755,0.793,0.671,0.801,1.088,0.975,0.862,1.17,0.858,0.758,1.122,0.835,0.728,0.92,0.714,0.794,0.821,0.78,1.029,1.245,0.901,0.987,0.823,0.631];
+  const TOWER_CURVE = Object.assign([26.34, 40.82], globalThis.TOWER_CURVE || []);
+  const TOWER_FIX = globalThis.NO_TOWER_FIX ? [] : [1.112,1.071,1.191,1.216,1.223,1.007,1.238,1.245,1.253,1.26,1.099,1.222,1.283,1.291,1.299,1.306,1.206,1.196,1.33,1.127,0.658,1.243,0.874,0.867,0.872,1.042,1.192,1.116,0.71,0.898,1.429,1.438,1.446,1.434,1.382,1.03,1.021,0.76,1.227,1.508,0.919,0.779,1.536,1.111,0.928,1.28,1.363,0.892,0.714,1.136,1.004,1.166,1.092,1.099,1.39,1.05,1.151,0.934,1.039,1.107,0.873,0.698,0.896,0.677,0.681,0.611,0.958,0.724,0.587,0.895,0.815,1.107,1.231,0.698,0.977,0.738,0.681,0.849,0.807,0.767,0.97,0.846,0.927,1.031,1.146,0.795,1.339,0.804,1.062,1.251,0.589,0.704,1.088,1.11,0.677,1.413,0.825,0.74,0.703,0.668];
   const towerTarget = n => 1000 * TOWER_CURVE[0] * Math.pow(TOWER_CURVE[1] / TOWER_CURVE[0], (n - 1) / (TOWER_FLOORS - 1));
   // Runes plus fortes en haute qualité (tirages par qualité) : le haut de la Tour est relevé en douceur pour rester le
   // défi ultime (aucun changement jusqu'à l'étage 30, puis jusqu'à +15 % à partir de l'étage 70).
-  const towerRuneK = n => 1 + 0.15 * Math.min(1, Math.max(0, (n - 30) / 40));
+  const towerRuneK = () => 1; // intégré au calibrage (tools/arena-tower.js)
   // La Tour démarre au niveau du milieu de l'Enfer : elle s'ouvre avec lui, quand le Difficile est terminé.
   const towerOpen = () => campaignDone('hard');
   function towerFloor(n) {
@@ -6601,7 +6727,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const sec = (t, b) => `<details class="rule"><summary>${t}</summary><div>${b}</div></details>`;
     app.innerHTML = topbar('Règles') + `<div class="page rules">
       ${sec('But du jeu', '<p>Monte une équipe de 6 Pokémon, termine la campagne des 12 régions, grimpe dans l’Arène de l’Ombre et explore les donjons pour renforcer tes Pokémon.</p>')}
-      ${sec('Combats', '<p>6 contre 6, au tour par tour. Chaque Pokémon remplit sa jauge d’action selon sa <b>Vitesse</b> (frise en haut : ordre des prochains tours). À son tour, il utilise une de ses <b>3 compétences</b> : I sans recharge, II et III (ultime) avec recharge. Touche une compétence, puis un adversaire. Appui long sur une compétence : sa description. Mode Auto et vitesse ×1/×2/×3/×5.</p><p>Types, STAB (×1,5), coups critiques, statuts (brûlure, poison, paralysie, sommeil, gel), bonus et malus de stats, soins.</p>')}
+      ${sec('Combats', '<p>6 contre 6, au tour par tour. Chaque Pokémon remplit sa jauge d’action selon sa <b>Vitesse</b> (frise en haut : ordre des prochains tours). À son tour, il utilise une de ses <b>3 compétences</b> : I sans recharge, II et III (ultime) avec recharge. Touche une compétence, puis un adversaire. Appui long sur une compétence : sa description. Mode Auto et vitesse ×1/×2/×3/×5.</p><p>Types, STAB (×1,5), coups critiques, statuts (brûlure, poison, paralysie, sommeil, gel), bonus et malus de stats, soins.</p><p><b>Mécaniques spéciales</b> : <b>marque</b> (la cible subit plus de dégâts), <b>saignement</b> (dégâts sur la durée, cumulables), <b>ricochet</b> (l’attaque rebondit sur d’autres ennemis), <b>brise-bouclier</b>, <b>rejoue</b> après avoir mis un ennemi K.O., <b>vol de bonus</b>, <b>montée en puissance</b> à chaque utilisation, <b>rage</b> (plus fort quand il est blessé). Chaque type a son style : Ténèbres et Vol rejouent, Électrik et Eau ricochent, Feu et Plante font saigner, Spectre et Psy marquent et volent, Acier, Roche, Sol et Glace brisent les boucliers, Dragon et Normal montent en puissance. Les ultimes des Légendaires, Fabuleux et Mythiques cumulent un ou deux de ces effets, et leur puissance grimpe nettement à chaque rareté.</p>')}
       ${sec('Rôles et équipe de 6', `<p>Chaque Pokémon a un rôle (icône sur sa carte), avec des compétences II et III qui lui sont propres :</p><ul>${A.ROLE_ORDER.map(r => `<li><b style="color:${A.ROLES[r].color}">${A.ROLES[r].i} ${A.ROLES[r].n}</b> : ${A.ROLES[r].d}</li>`).join('')}</ul><p>Une <b>Provocation</b> oblige les attaques ciblées à viser le tank. Les soins purifient statuts et malus. Le contrôle repousse la jauge d’action adverse, le soutien accélère la tienne. En fin de jeu, il faut une vraie équipe : idéalement un tank, un soigneur, deux attaquants et deux Pokémon de contrôle ou de soutien. « Meilleure équipe auto » suit ce modèle.</p>`)}
       ${sec('Types', `<p>Chaque Pokémon a 1 ou 2 types, et chaque compétence un type. <b>Super efficace</b> : ×2 (×4 si les deux types sont faibles) ; <b>peu efficace</b> : ×½ ; <b>aucun effet</b> : ×0. Une compétence du même type que son lanceur fait ×1,5. En combat, choisis une compétence : l'efficacité s'affiche sur chaque adversaire. Les fiches des Pokémon montrent faiblesses, résistances et immunités.</p><div class="row"><button class="btn small" data-chart>Ouvrir la table des types</button></div>`)}
       ${sec('Terrain et formation', '<p>Les deux équipes se font face sur le terrain, chacune sur 3 lignes : <b>Avant</b>, <b>Milieu</b>, <b>Arrière</b>. Tant qu’un allié tient la ligne <b>Avant</b>, la ligne <b>Arrière</b> est hors d’atteinte des attaques ciblées (sauf provocation ou infiltration). Les lignes couvertes subissent aussi moins de dégâts : Milieu −20 %, Arrière −35 % (attaques de zone : −10 % et −20 %). Le tank devant protège donc soigneurs et soutiens. En combat, touche un adversaire pour en faire ta <b>cible prioritaire 🎯</b> : tes Pokémon l’attaquent en priorité, même en mode Auto. Change la ligne de chaque Pokémon dans l’écran Équipe. Les adversaires se placent selon leur rôle.</p><p><b>Campagne auto</b> : depuis la Campagne, un chapitre ou un combat de campagne, enchaîne automatiquement les étapes suivantes jusqu’à une défaite.</p>')}
