@@ -1600,7 +1600,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     1021: ['Foudre ancestrale', [F('statusAura', 20, { ail: 1 }), F('dmgUp', 12)]], 794: ['Bête Boost', [F('moxie', 15), F('hp', 10)]],
     795: ['Bête Boost véloce', [F('speed', 25), F('moxie', 10)]], 798: ['Lame de Papier', [F('crit', 25), F('infiltrate', 20)]],
     // Fabuleux (Légendaires du jeu)
-    151: ['Gène Originel', [F('copy', 15), F('regen', 3)]], 251: ['Voyage Temporel', [F('regen', 5), F('cleanseTurn', 1)]],
+    151: ['Gène Originel', [F('teamAll', 10), F('regen', 3)]], 251: ['Voyage Temporel', [F('regen', 5), F('cleanseTurn', 1)]],
     385: ['Vœu Millénaire', [F('shieldStart', 12), F('regen', 3)]], 386: ['ADN Mutant', [F('speed', 25), F('dmgUp', 20)]],
     490: ['Cœur Échangé', [F('cleanseTurn', 1), F('regen', 4)]], 491: ['Mauvais Rêve', [F('statusAura', 20, { ail: 2 }), F('infiltrate', 20)]],
     492: ['Gracidée', [F('regen', 4), F('speed', 15)]], 493: ['Multi-Type', [F('multitype', 50), F('copy', 25), F('aura', 10)]],
@@ -1672,6 +1672,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       case 'regen': return `à chacun de ses tours, l’équipe récupère ${v} % de ses PV max`;
       case 'pure': return 'immunisé aux statuts';
       case 'aura': return `toute l’équipe gagne +${v} % d’Attaque et de Vitesse`;
+      case 'teamAll': return `toute l’équipe gagne +${v} % à toutes ses stats (PV, Attaque, Défense, Atq. Spé, Déf. Spé, Vitesse)`;
       case 'presence': return `commence le combat avec ${v} % de jauge d’action`;
       case 'execute': return `+${v} % de dégâts contre une cible sous 50 % de PV`;
       case 'typeUp': return `les compétences de type ${typeN(e.t)} de toute l’équipe font +${v} % de dégâts`;
@@ -2162,6 +2163,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function startEffects(b, fresh) {
     // Aura (soutien légendaire) : bonus permanent d'Attaque et de Vitesse pour son équipe.
     for (const u of fresh) if (u.passives.aura) for (const a of b.units) if (a.side === u.side && fresh.includes(a)) { a.st = Object.assign({}, a.st); for (const k of ['atk', 'spa', 'spe']) a.st[k] = Math.round(a.st[k] * (1 + u.passives.aura / 100)); }
+    // Bénédiction (Mew) : toutes les stats de l'équipe augmentées, PV compris.
+    for (const u of fresh) if (u.passives.teamAll) for (const a of b.units) if (a.side === u.side && fresh.includes(a)) { const f = 1 + u.passives.teamAll / 100; a.st = Object.assign({}, a.st); for (const k of ['atk', 'def', 'spa', 'spd', 'spe']) a.st[k] = Math.round(a.st[k] * f); const full = a.hp >= a.maxHp; a.maxHp = Math.round(a.maxHp * f); if (full) a.hp = a.maxHp; }
     // Intimidation, bouclier et protection d'équipe, météo / terrain (bonus de type).
     for (const u of b.units) {
       const isNew = fresh.includes(u);
