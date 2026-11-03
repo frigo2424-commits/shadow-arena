@@ -1289,6 +1289,13 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .pick-filters { margin: 8px 0 4px; }
 .pick-filters .chips { margin: 4px 0; }
 
+/* Types d'attaque sur la carte d'un Pokémon (en haut à gauche) */
+.atk-types { position: absolute; top: 4px; left: 4px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+.atk-t { width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; font-style: normal; font-size: 12px; line-height: 1; background: var(--tc); box-shadow: 0 0 6px color-mix(in srgb, var(--tc) 70%, transparent); border: 1px solid rgba(255,255,255,.35); }
+.mon-card .atk-types ~ .shiny-mark { left: 29px; }
+.mon-selects { display: flex; gap: 8px; flex-wrap: wrap; }
+.mon-selects select { flex: 1 1 140px; min-width: 0; }
+
 </style>
 <div id="app"></div>
 <div id="modal-root"></div>
@@ -4750,6 +4757,12 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   };
   const typeById = Object.fromEntries(D.types.map(t => [t.id, t]));
   const typeColor = id => TYPE_COLORS[(typeById[id] || {}).key] || '#888';
+  // Icône de type (attaques) : symbole dans une pastille à la couleur du type.
+  const TYPE_SYM = { normal: '●', fighting: '👊', flying: '🪶', poison: '☠', ground: '⛰', rock: '🪨', bug: '🐛', ghost: '👻', steel: '⚙', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡', psychic: '🔮', ice: '❄', dragon: '🐉', dark: '🌙', fairy: '✨' };
+  const typeSym = id => TYPE_SYM[(typeById[id] || {}).key] || '?';
+  // Types des attaques qui infligent des dégâts (les plus utilisés d'abord, 3 au plus), selon la forme actuelle.
+  const atkTypes = m => { const cnt = {}; for (const k of (A.skillsOfMon ? A.skillsOfMon(m) : A.skillsOf(m.sid)) || []) if (k.pow && k.t) cnt[k.t] = (cnt[k.t] || 0) + (k.pow || 1); return Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a]).slice(0, 3); };
+  const atkTypeIcons = m => { const ts = atkTypes(m); return ts.length ? `<span class="atk-types" title="Attaques ${ts.map(t => typeById[t].n).join(', ')}">${ts.map(t => `<i class="atk-t" style="--tc:${typeColor(t)}">${typeSym(t)}</i>`).join('')}</span>` : ''; };
   const typeBadge = id => `<span class="type" style="background:${typeColor(id)}">${esc(typeById[id].n)}</span>`;
   const rar = k => A.RARITIES[k];
   const sp = A.sp;
@@ -5217,10 +5230,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // ---------- Collection ----------
-  let monFilter = { r: 'all', role: 'all', sort: 'power' };
+  let monFilter = { r: 'all', role: 'all', sort: 'power', at: 0 };
   function monCard(m, extra) {
     const k = A.rarOf(m);
-    return `<button class="mon-card" data-uid="${m.uid}" style="--rc:${rar(k).color}">${m.shiny ? '<i class="shiny-mark">✨</i>' : ''}${G.soulsOf(m.sid) && G.dupesOf(m.sid) < G.DUPE_MAX ? `<i class="soul-mark" title="Âme disponible">Âme ×${G.soulsOf(m.sid)}</i>` : ''}${roleIcon(m.sid)}${monImg(m)}
+    return `<button class="mon-card" data-uid="${m.uid}" style="--rc:${rar(k).color}">${atkTypeIcons(m)}${m.shiny ? '<i class="shiny-mark">✨</i>' : ''}${G.soulsOf(m.sid) && G.dupesOf(m.sid) < G.DUPE_MAX ? `<i class="soul-mark" title="Âme disponible">Âme ×${G.soulsOf(m.sid)}</i>` : ''}${roleIcon(m.sid)}${monImg(m)}
       <b>${esc(monName(m))}</b><span class="lvl">N.${m.lv}<small>/${A.levelCap(m)}</small></span>${starsHtml(m)}${extra || ''}</button>`;
   }
   function sortMons(list) {
@@ -5230,17 +5243,19 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   function monsScreen(pickMode) {
     const s = S();
-    const list = sortMons(s.mons.filter(m => (monFilter.r === 'all' || A.rarOf(m) === monFilter.r) && (monFilter.role === 'all' || A.roleOf(m.sid) === monFilter.role)));
+    const list = sortMons(s.mons.filter(m => (monFilter.r === 'all' || A.rarOf(m) === monFilter.r) && (monFilter.role === 'all' || A.roleOf(m.sid) === monFilter.role) && (!monFilter.at || atkTypes(m).includes(monFilter.at))));
     app.innerHTML = topbar(pickMode ? 'Choisir un Pokémon' : 'Mes Pokémon') + `<div class="page">
       <div class="filters"><div class="chips">${['all', ...A.RARITY_ORDER].map(k => `<button class="chip ${monFilter.r === k ? 'on' : ''}" data-r="${k}" ${k !== 'all' ? `style="--rc:${rar(k).color}"` : ''}>${k === 'all' ? 'Tous' : rar(k).n}</button>`).join('')}</div>
       <div class="chips">${['all', ...A.ROLE_ORDER].map(k => `<button class="chip ${monFilter.role === k ? 'on' : ''}" data-role="${k}" ${k !== 'all' ? `style="--rc:${A.ROLES[k].color}"` : ''}>${k === 'all' ? 'Tous rôles' : A.ROLES[k].i + ' ' + A.ROLES[k].n}</button>`).join('')}</div>
       <div class="mon-search"><input type="search" id="mon-q" placeholder="🔍 Rechercher un Pokémon par nom…" value="${esc(monFilter.q || '')}" autocomplete="off"><span class="mon-count" id="mon-count"></span></div>
-      <select id="mon-sort">${[['power', 'Puissance'], ['level', 'Niveau'], ['rarity', 'Rareté'], ['name', 'Nom (A → Z)'], ['namez', 'Nom (Z → A)'], ['recent', 'Récents']].map(([v, n]) => `<option value="${v}" ${monFilter.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="mon-selects"><select id="mon-at" title="Type d’attaque">${[0, ...D.types.filter(t => TYPE_SYM[t.key]).map(t => t.id)].map(id => `<option value="${id}" ${monFilter.at === id ? 'selected' : ''}>${id ? `${typeSym(id)} Attaques ${esc(typeById[id].n)}` : 'Tous types d’attaque'}</option>`).join('')}</select>
+      <select id="mon-sort">${[['power', 'Puissance'], ['level', 'Niveau'], ['rarity', 'Rareté'], ['name', 'Nom (A → Z)'], ['namez', 'Nom (Z → A)'], ['recent', 'Récents']].map(([v, n]) => `<option value="${v}" ${monFilter.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
       <div class="mon-grid">${list.map(m => monCard(m, s.team.includes(m.uid) ? '<i class="in-team">Équipe</i>' : '')).join('') || '<p class="muted">Aucun Pokémon.</p>'}</div></div>`;
     bindBack(pickMode ? pickMode.back : hub);
     app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { monFilter.r = b.dataset.r; monsScreen(pickMode); });
     app.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { monFilter.role = b.dataset.role; monsScreen(pickMode); });
     app.querySelector('#mon-sort').onchange = e => { monFilter.sort = e.target.value; monsScreen(pickMode); };
+    app.querySelector('#mon-at').onchange = e => { monFilter.at = +e.target.value; monsScreen(pickMode); };
     // Recherche par nom (sans tenir compte des accents ni des majuscules), filtrée en direct.
     const norm = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const q = app.querySelector('#mon-q'), cards = [...app.querySelectorAll('.mon-grid .mon-card')], cnt = app.querySelector('#mon-count');
