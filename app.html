@@ -5015,8 +5015,17 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <p class="lead">Les arènes de l'ombre s'ouvrent. Choisis ton premier partenaire parmi ces 3 Pokémon rares.</p>
       <div class="starter-row">${starters.map(id => `<button class="starter" data-sid="${id}">${speciesImg(id, 'big')}<b>${esc(sp(id).n)}</b>${sp(id).t.map(typeBadge).join('')}<span class="rar-tag" style="--rc:${rar('R').color}">Rare</span>${roleTag(id)}<span class="small muted">Niveau max ${A.levelCap({ sid: id })}</span></button>`).join('')}</div>
       <p class="muted small">Tu recevras aussi 5 Poké Balls pour compléter ton équipe à l'Invocation, et quelques bonbons. D'autres Balls se gagnent avec les Succès.</p></div>`;
+    // Tant que la sauvegarde en ligne n'a pas répondu, on ne laisse pas commencer une partie neuve : elle écraserait
+    // la progression enregistrée sur le compte Claude (téléphone dont le stockage local a été vidé).
+    if (cloud.status === 'checking' && !cloudWaitOver) {
+      app.querySelector('.intro').insertAdjacentHTML('beforeend', '<p class="note cloud-wait">☁️ Recherche de ta sauvegarde en ligne…</p>');
+      app.querySelectorAll('[data-sid]').forEach(b => { b.disabled = true; });
+      setTimeout(() => { cloudWaitOver = true; if (app.querySelector('.intro')) hub(); }, 8000);
+      return;
+    }
     app.querySelectorAll('[data-sid]').forEach(b => b.onclick = () => { G.start(+b.dataset.sid); hub(); toast('Bienvenue ! Va à l’Invocation pour compléter ton équipe.'); });
   }
+  let cloudWaitOver = false;
 
   // ---------- Accueil ----------
   // ---------- Accueil : 3 décors à faire glisser ----------
@@ -6520,35 +6529,53 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // ---------- Sauvegarde (navigateur + compte Claude) ----------
-  const cloud = { status: 'checking', ref: null, timer: null, writing: false, again: false, lastSync: 0 };
-  function scheduleUpload(d) { if (cloud.status !== 'on') return; clearTimeout(cloud.timer); cloud.timer = setTimeout(uploadSave, d == null ? 1500 : d); }
+  const cloud = { status: 'checking', ref: null, prevRef: null, timer: null, writing: false, again: false, lastSync: 0, remote: null, prev: null, pending: false, backedUp: false };
+  // Avancement d'une sauvegarde (pour ne jamais écraser une partie plus avancée sans en garder une copie).
+  const progressOf = snap => { try { const x = JSON.parse(snap.state); return x.started ? 1 + (x.mons || []).length + Object.keys(x.campaign || {}).length + ((x.trainer && x.trainer.lv) || 0) : 0; } catch (e) { return 0; } };
+  function scheduleUpload(d) { if (cloud.status !== 'on' || cloud.pending) return; clearTimeout(cloud.timer); cloud.timer = setTimeout(uploadSave, d == null ? 1500 : d); }
   async function uploadSave() {
-    cloud.timer = null; if (cloud.writing) { cloud.again = true; return; }
+    cloud.timer = null; if (cloud.pending) return; if (cloud.writing) { cloud.again = true; return; }
     cloud.writing = true;
-    try { await cloud.ref.set(G.snapshot()); cloud.lastSync = Date.now(); } catch (e) { if (e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked')) cloud.status = 'readonly'; }
+    try {
+      const snap = G.snapshot();
+      // Filet de sécurité : la 1re fois qu'on remplace une sauvegarde en ligne plus avancée, on la garde de côté.
+      if (!cloud.backedUp && cloud.remote && cloud.remote.state !== snap.state && progressOf(cloud.remote) > progressOf(snap)) { await cloud.prevRef.set(cloud.remote); cloud.prev = cloud.remote; }
+      cloud.backedUp = true;
+      await cloud.ref.set(snap); cloud.remote = snap; cloud.lastSync = Date.now();
+    } catch (e) { if (e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked')) cloud.status = 'readonly'; }
     cloud.writing = false; if (cloud.again) { cloud.again = false; scheduleUpload(500); }
   }
   async function cloudInit() {
     try {
-      if (!window.claude || typeof window.claude.use !== 'function') { cloud.status = 'off'; return; }
+      const off = () => { cloud.status = 'off'; if (app.querySelector('.intro')) hub(); };
+      if (!window.claude || typeof window.claude.use !== 'function') return off();
       const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
       const id = user && await user.id();
-      if (!db || !id) { cloud.status = 'off'; return; }
-      cloud.ref = db.doc(`data/users/${id}/arena`);
+      if (!db || !id) return off();
+      cloud.ref = db.doc(`data/users/${id}/arena`); cloud.prevRef = db.doc(`data/users/${id}/arena_prev`);
       const snap = await cloud.ref.get(), remote = snap.exists ? snap.data() : null, local = G.snapshot();
-      cloud.status = 'on'; G.setOnSave(() => scheduleUpload());
-      const idle = !document.querySelector('.battle-wrap') && !modalRoot.children.length;
-      if (remote && remote.state && (remote.at || 0) > (local.at || 0) && idle) { G.restore(remote); toast('Progression récupérée depuis ton compte Claude.'); hub(); }
-      else scheduleUpload(0);
-    } catch (e) { if (cloud.status !== 'on') cloud.status = 'off'; }
+      try { const pv = await cloud.prevRef.get(); cloud.prev = pv.exists ? pv.data() : null; } catch (e) { /* ignore */ }
+      cloud.remote = remote; cloud.status = 'on'; G.setOnSave(() => scheduleUpload());
+      // La sauvegarde en ligne gagne si elle est plus récente, ou si ce téléphone n'a pas (plus) de partie commencée.
+      const want = remote && remote.state && progressOf(remote) > 0 && (!G.S.started || (remote.at || 0) > (local.at || 0));
+      if (want) {
+        cloud.pending = true; // rien n'est envoyé tant que la progression en ligne n'est pas récupérée
+        const apply = () => {
+          if (document.querySelector('.battle-wrap') || modalRoot.children.length) return setTimeout(apply, 800);
+          G.restore(remote); cloud.pending = false; toast('Progression récupérée depuis ton compte Claude.'); hub();
+        };
+        apply();
+      } else { if (app.querySelector('.intro')) hub(); scheduleUpload(0); }
+    } catch (e) { if (cloud.status !== 'on') cloud.status = 'off'; if (app.querySelector('.intro')) hub(); }
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden && cloud.timer) { clearTimeout(cloud.timer); uploadSave(); } });
   function saveScreen() {
     const status = { on: `<p class="note ok">☁️ <b>Sauvegarde en ligne active</b> sur ton compte Claude : elle survit au nettoyage du navigateur et te suit sur tes appareils.${cloud.lastSync ? ` Dernier envoi : ${new Date(cloud.lastSync).toLocaleTimeString('fr-FR')}.` : ''}</p>`,
-      readonly: `<p class="note warn"><b>Sauvegarde en ligne impossible avec ton accès</b> (il faut pouvoir modifier la page). Exporte régulièrement ton code.</p>`,
+      readonly: `<p class="note warn"><b>Sauvegarde en ligne impossible avec ton accès</b> (ce lien ne permet que de regarder la page : demande un accès « peut utiliser » à la personne qui te l’a partagé). Exporte régulièrement ton code.</p>`,
       off: `<p class="note warn"><b>Sauvegarde en ligne indisponible ici.</b> Ta progression n'est que dans ce navigateur : exporte-la régulièrement.</p>`,
       checking: '<p class="muted">Vérification…</p>' }[cloud.status];
     app.innerHTML = topbar('Sauvegarde') + `<div class="page save">${status}
+      ${cloud.prev && cloud.prev.state ? `<h3>Sauvegarde précédente</h3><p class="small muted">Copie de ta partie en ligne gardée avant qu'une partie moins avancée la remplace${cloud.prev.at ? ` (enregistrée le ${new Date(cloud.prev.at).toLocaleString('fr-FR')})` : ''}.</p><div class="row"><button class="btn" data-prev>Récupérer cette sauvegarde</button></div>` : ''}
       <h3>Exporter</h3><textarea id="exp" readonly rows="4"></textarea><div class="row"><button class="btn primary" data-copy>Copier le code</button></div>
       <h3>Importer</h3><textarea id="imp" rows="4" placeholder="PSA1:…"></textarea><div class="row"><button class="btn" data-imp>Importer</button><span class="muted small" data-msg></span></div>
       <h3>Recommencer</h3><div class="row"><button class="btn ghost" data-reset>Tout effacer</button></div></div>`;
@@ -6560,6 +6587,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       if (!await confirmBox('Remplacer ta progression par ce code ?', 'Importer')) return;
       if (G.importCode(code)) { toast('Sauvegarde importée.'); hub(); } else app.querySelector('[data-msg]').textContent = 'Code invalide (il commence par PSA1:).';
     };
+    const pb = app.querySelector('[data-prev]'); if (pb) pb.onclick = async () => { if (!await confirmBox('Remplacer ta progression actuelle par la sauvegarde précédente ?', 'Récupérer')) return; const cur = G.snapshot(); G.restore(cloud.prev); cloud.prev = cur; try { await cloud.prevRef.set(cur); } catch (e) { /* ignore */ } G.save(); toast('Sauvegarde récupérée.'); hub(); };
     app.querySelector('[data-reset]').onclick = async () => { if (await confirmBox('Effacer toute ta progression ? C’est définitif.', 'Tout effacer')) { G.S.started = false; G.save(); intro(); } };
   }
 
