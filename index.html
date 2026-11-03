@@ -1296,6 +1296,7 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .mon-selects { display: flex; gap: 8px; flex-wrap: wrap; }
 .mon-selects select { flex: 1 1 140px; min-width: 0; }
 .chip.shiny-chip { --rc: #ffd34a; }
+.stats div:has(.stat-note) { flex-wrap: wrap; } .stats .stat-note { display: block; width: 100%; text-align: right; font-size: 9.5px; color: var(--muted); font-weight: 600; }
 
 </style>
 <div id="app"></div>
@@ -5322,6 +5323,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const nav = (detailNav || []).filter(u => s.mons.some(x => x.uid === u)), ni = nav.indexOf(uidv);
     const step = d => { if (ni < 0 || nav.length < 2) return; const u = nav[(ni + d + nav.length) % nav.length]; monDetail(u, back); const pg = app.querySelector('.page.detail'); if (pg) pg.classList.add(d > 0 ? 'slide-next' : 'slide-prev'); };
     const k = A.rarOf(m), st = G.statsOf(m), cap = A.levelCap(m), need = G.expNeed(m.lv);
+    // Critique réellement utilisé en combat : +10 % pour les attaquants (rôle) et passifs « critique » (+X % de taux, +2X % de dégâts).
+    const pCrit = (A.passivesOfMon ? A.passivesOfMon(m) : A.passivesOf(m.sid) || []).reduce((a, p) => a + (p.fx || []).filter(e => e.k === 'crit').reduce((x, e) => x + e.v, 0), 0);
+    const rCrit = A.roleOf(m.sid) === 'dps' ? 10 : 0;
+    const cst = Object.assign({}, st, { crit: st.crit + rCrit + pCrit, critd: st.critd + 2 * pCrit });
+    const critNote = { crit: rCrit || pCrit ? `dont ${[rCrit ? `rôle +${rCrit}` : '', pCrit ? `passif +${pCrit}` : ''].filter(Boolean).join(', ')}` : '', critd: pCrit ? `dont passif +${2 * pCrit}` : '' };
     const evos = A.evolutionsOf(m.sid), ults = m.form ? [] : A.ultimatesOf(m.sid);
     const atCap = m.lv >= cap;
     const ec = evos.length && !m.form ? G.evolveCost(m) : null;
@@ -5344,7 +5350,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
       ${evoBonusHtml(m)}
       <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
-      <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(st[key])}</b></div>`).join('')}</div><p class="muted small">En combat, les PV sont multipliés par ${String(B.HP_MULT).replace(".", ",")}.</p></section>
+      <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(cst[key])}</b>${critNote[key] ? `<small class="stat-note">${critNote[key]}</small>` : ''}</div>`).join('')}</div><p class="muted small">Valeurs en combat (rôle et passifs compris pour le critique). En combat, les PV sont multipliés par ${String(B.HP_MULT).replace(".", ",")}.</p></section>
       ${(n => { const so = G.soulsOf(m.sid), mx = n >= G.DUPE_MAX; return `<section class="soul-sec"><h3>Éveil des Âmes · ${n}/${G.DUPE_MAX}</h3>
         <div class="dupe-line"><div class="dupe-bar">${G.DUPE_BONUS.map((v, i) => `<i class="${i < n ? 'on' : ''}" title="Palier ${i + 1} : +${v} %"></i>`).join('')}</div><b>${n ? '+' + G.DUPE_BONUS[n - 1] + ' % stats' : 'aucun bonus'}</b></div>
         <div class="row soul-row"><span class="soul-gem">${speciesImg(A.rootOf(m.sid), 'mini')}<i>×${so}</i></span><span class="small">Âmes de ${esc(sp(A.rootOf(m.sid)).n)}${mx ? ' · éveil maximal' : ` · palier ${n + 1} : +${G.DUPE_BONUS[n]} % stats pour ${fmt(G.SOUL_GOLD(n))} ₽`}</span>
