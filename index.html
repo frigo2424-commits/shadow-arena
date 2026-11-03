@@ -1928,6 +1928,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const k = want && (kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim && x.slot === 0) || kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim));
       if (k) { k.scale = want; k.pow = Math.round(k.pow * (want === 'spe' ? 0.92 : 1.05)); k.statScale = true; }
     }
+    // Attaquants : pas de soin d'allié sur leurs attaques, ni de vol de vie sur leur ultime. Ces effets de soutien sont
+    // remplacés par un bonus offensif (critique, perce-défense ou achèvement), et l'ultime gagne +10 % de puissance.
+    if (role === 'dps') {
+      const OFF = [['critUp', 20], ['pierce', 20], ['exec', 25]];
+      for (const k of kit) {
+        if (!k.pow) continue;
+        const lostUlt = k.slot === 2 && k.drain > 0, lostMend = !!k.allyHeal;
+        if (!lostUlt && !lostMend) continue;
+        if (lostMend) delete k.allyHeal;
+        if (lostUlt) { delete k.drain; k.pow = Math.round(k.pow * 1.1); k.n = k.n.replace(/^Vampirisme/, 'Déchaînement'); }
+        const free = OFF.filter(([f]) => !k[f]); if (!free.length) continue;
+        const [f, v] = free[hash(sid, k.slot, 77) % free.length]; k[f] = v;
+      }
+    }
     // Tanks et ensemble Riposte : la compétence I sert de contre-attaque. Elle frappe avec la meilleure stat du tank
     // (Défense / Déf. Spé ou PV) quand elle dépasse son offensive, et gagne +50 % de puissance en riposte.
     if (role === 'tank') {
