@@ -2113,6 +2113,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         else { k.healStat = b[1] > b[3] ? 'atk' : 'spa'; k.heal = Math.round(k.heal * HEAL_OFF_K); }
       }
     }
+    // Ultime basé sur une stat particulière (Vitesse, Défense, PV) : toutes ses attaques suivent la même stat.
+    if (kit[2] && kit[2].pow && kit[2].scale) { const sc = kit[2].scale;
+      for (const k of kit) if (k.pow && k !== kit[2] && k.scale !== sc) { if (!k.scale) k.pow = Math.round(k.pow * (sc === 'spe' ? 0.92 : 1.05)); k.scale = sc; k.statScale = true; } }
     // Recalage de la puissance sur la cible de sa rareté et de son rôle (bonus d'évolution à venir compris).
     baseCache[sid] = kit.map(k => Object.assign({}, k)); // provisoire : sert à choisir les bonus d'évolution
     if (!globalThis.NO_NORM) {
