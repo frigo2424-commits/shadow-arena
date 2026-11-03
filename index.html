@@ -1377,6 +1377,9 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 /* Ultime : flash de couleur sur tout le terrain */
 .fx-ult { position: absolute; inset: 0; pointer-events: none; z-index: 6; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--fc) 45%, transparent), transparent 70%); animation: fxult .9s ease-out forwards; mix-blend-mode: screen; }
 @keyframes fxult { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+.lane-cap { font-style: normal; font-size: .72em; font-weight: 800; padding: 0 6px; border-radius: 999px; background: rgba(255,255,255,.08); margin-left: 4px; }
+.lane-cap.full { background: #ffb15e33; color: #ffb15e; }
+.tm-warn { color: #ff8a5e; font-size: 10.5px; font-weight: 700; }
 
 </style>
 <div id="app"></div>
@@ -2315,7 +2318,22 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // elles subissent moins de dégâts des attaques ciblées et l'IA adverse les vise moins souvent.
   const ROWS = ['front', 'mid', 'back'];
   const ROW_FR = { front: 'Avant', mid: 'Milieu', back: 'Arrière' };
-  const DEFAULT_ROW = { tank: 'front', dps: 'mid', ctrl: 'mid', heal: 'back', sup: 'back' };
+  const DEFAULT_ROW = { tank: 'front', dps: 'mid', ctrl: 'back', heal: 'back', sup: 'back' };
+  // Places par ligne : 2 à l'Avant, 3 au Milieu, 2 à l'Arrière. Un attaquant placé à l'Arrière inflige −35 % de dégâts.
+  const ROW_CAP = { front: 2, mid: 3, back: 2 }, BACK_DPS = 0.65;
+  const ROW_PREF = { tank: ['front', 'mid', 'back'], dps: ['mid', 'front', 'back'], ctrl: ['back', 'mid', 'front'], heal: ['back', 'mid', 'front'], sup: ['back', 'mid', 'front'] };
+  // Répartit une équipe en respectant les places : chacun garde la ligne voulue si possible ; sinon, ceux qui sont le
+  // moins à leur place (rôle) changent de ligne, vers la suivante dans leur ordre de préférence.
+  function fixRows(list) { // list : [{ role, row }] → lignes corrigées (même ordre)
+    const out = list.map(x => x.row), cnt = r => out.filter(v => v === r).length;
+    for (let pass = 0; pass < 12; pass++) {
+      const over = ROWS.find(r => cnt(r) > ROW_CAP[r]); if (!over) break;
+      const idx = list.map((x, i) => i).filter(i => out[i] === over).sort((a, b) => ROW_PREF[list[b].role].indexOf(over) - ROW_PREF[list[a].role].indexOf(over))[0];
+      const to = ROW_PREF[list[idx].role].find(r => r !== over && cnt(r) < ROW_CAP[r]) || ROWS.find(r => cnt(r) < ROW_CAP[r]);
+      if (!to) break; out[idx] = to;
+    }
+    return out;
+  }
   // Lignes : l'Arrière est hors d'atteinte des attaques ciblées tant qu'un allié tient la ligne Avant (sauf
   // infiltration ou provocation) ; Milieu et Arrière couverts subissent moins de dégâts, y compris des attaques de zone.
   const COVER = { front: 1, mid: 0.8, back: 0.65 }, AOE_FALL = { front: 1, mid: 0.9, back: 0.8 };
@@ -2352,7 +2370,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
 
   // waves : vagues suivantes (donjons) ; la dernière contient le boss final.
+  const placeSide = units => { const rows = fixRows(units.map(u => ({ role: u.role, row: u.row }))); units.forEach((u, i) => { u.row = rows[i]; }); return units; };
   function create(allies, enemies, waves) {
+    placeSide(allies); placeSide(enemies); for (const w of waves || []) placeSide(w);
     const b = { units: [...allies, ...enemies], turn: 0, log: [], over: false, winner: null, past: [], waves: waves || [], wave: 1, waveTotal: 1 + (waves ? waves.length : 0) };
     startEffects(b, b.units);
     return b;
@@ -2513,6 +2533,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (sk.rage) dmg *= 1 + (1 - u.hp / u.maxHp) * sk.rage / 100;
     if (sk.ramp && u.ramp && u.ramp[sk.slot]) dmg *= 1 + u.ramp[sk.slot] / 100;
     if (P.lastStand && u.hp < u.maxHp * 0.35) dmg *= 1 + P.lastStand / 100;
+    if (u.role === 'dps' && u.row === 'back') dmg *= BACK_DPS; // attaquant hors de position
     if (sk.shatter && t.shield > 0) dmg *= 1 + sk.shatter / 100;
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
     if (b && covered(b, t) && !u.passives.infiltrate && !(sk.aim && sk.aim !== 'spread')) dmg *= single ? COVER[t.row] : AOE_FALL[t.row];
@@ -2795,7 +2816,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Combat entièrement automatique (simulation, tests).
   function autoRun(b) { while (!b.over) { const u = nextActor(b); act(b, u, aiChoose(b, u)); } return b.winner; }
 
-  root.ArenaBattle = { unit, create, nextActor, preview, act, aiChoose, ready, alive, foes, autoRun, typeFactor, eff, taunter, covered, guarded, canTarget, targetsFor, ROWS, ROW_FR, DEFAULT_ROW, COVER, HP_MULT, STAT_FR };
+  root.ArenaBattle = { unit, create, nextActor, preview, act, aiChoose, ready, alive, foes, autoRun, typeFactor, eff, taunter, covered, guarded, canTarget, targetsFor, ROWS, ROW_FR, DEFAULT_ROW, ROW_CAP, ROW_PREF, BACK_DPS, fixRows, COVER, HP_MULT, STAT_FR };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -3836,8 +3857,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return B.create(allies, mk(spec.enemies));
   }
   // Ligne de chaque Pokémon de l'équipe (modifiable dans l'écran Équipe) ; par défaut selon son rôle.
-  const rowOf = m => (S.formation || {})[m.uid] || B.DEFAULT_ROW[A.roleOf(m.sid)] || 'mid';
-  function setRow(uidv, row) { S.formation = S.formation || {}; S.formation[uidv] = row; save(); }
+  // Places limitées (2 Avant, 3 Milieu, 2 Arrière) : la ligne choisie est gardée si possible, sinon corrigée.
+  const rawRow = m => (S.formation || {})[m.uid] || B.DEFAULT_ROW[A.roleOf(m.sid)] || 'mid';
+  function teamRows() {
+    const team = S.team.map(u => S.mons.find(m => m.uid === u)).filter(Boolean);
+    const rows = B.fixRows(team.map(m => ({ role: A.roleOf(m.sid), row: rawRow(m) })));
+    return Object.fromEntries(team.map((m, i) => [m.uid, rows[i]]));
+  }
+  const rowOf = m => teamRows()[m.uid] || rawRow(m);
+  // Changer de ligne : refusé si la ligne visée est pleine. Renvoie vrai si c'est fait.
+  function setRow(uidv, row) {
+    const rows = teamRows(), used = Object.entries(rows).filter(([u, r]) => r === row && u !== uidv).length;
+    if (used >= B.ROW_CAP[row]) return false;
+    S.formation = S.formation || {}; for (const [u, r] of Object.entries(rows)) S.formation[u] = r; S.formation[uidv] = row; save(); return true;
+  }
   function applyLoot(loot) {
     if (loot.gems) S.gems += loot.gems;
     if (loot.gold) S.gold += loot.gold;
@@ -5896,7 +5929,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // ---------- Équipe ----------
   // Équipe : tableau de formation en 3 lignes (Avant, Milieu, Arrière). Chaque carte se déplace d'une ligne à
   // l'autre avec ◀ ▶, se retire avec ✕ et ouvre sa fiche au toucher ; les places libres s'ajoutent en bas.
-  const LANE_INFO = { front: ['En première ligne', 'Tanks, gros PV : ils protègent l’Arrière'], mid: ['Couvert : −20 % de dégâts', 'Attaquants, contrôle'], back: ['Intouchable tant que l’Avant tient', 'Soigneurs, soutiens (−35 % ensuite)'] };
+  const LANE_INFO = { front: ['En première ligne', 'Tanks : ils protègent l’Arrière'], mid: ['Couvert : −20 % de dégâts', 'Attaquants'], back: ['Intouchable tant que l’Avant tient', 'Soigneurs, soutiens, contrôle (−35 % ensuite) · un attaquant ici inflige −35 % de dégâts'] };
   function teamScreen(after) {
     const s = S(), team = teamMons(), free = G.TEAM_SIZE - team.length;
     const roles = {}; team.forEach(m => { const r = A.roleOf(m.sid); roles[r] = (roles[r] || 0) + 1; });
@@ -5904,7 +5937,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const card = m => { const r = A.ROLES[A.roleOf(m.sid)], row = G.rowOf(m), k = B.ROWS.indexOf(row);
       return `<div class="tm-card" style="--ro:${r.color};--rc:${rar(A.rarOf(m)).color}">
         <button class="tm-pic" data-see="${m.uid}" aria-label="Fiche">${monImg(m)}</button>
-        <div class="tm-info"><b>${esc(monName(m))}</b><span>${roleIcon(m.sid)} ${r.n} · N.${m.lv}</span><span class="tm-pow">⚡ ${fmt(G.powerOf(m))}</span></div>
+        <div class="tm-info"><b>${esc(monName(m))}</b><span>${roleIcon(m.sid)} ${r.n} · N.${m.lv}</span><span class="tm-pow">⚡ ${fmt(G.powerOf(m))}</span>${A.roleOf(m.sid) === 'dps' && row === 'back' ? '<span class="tm-warn">⚠ Hors de position : −35 % de dégâts</span>' : ''}</div>
         <div class="tm-acts"><button class="tm-b" data-mv="${m.uid}" data-to="${k - 1}" ${k > 0 ? '' : 'disabled'} title="Vers l’avant">▲</button><button class="tm-b" data-mv="${m.uid}" data-to="${k + 1}" ${k < 2 ? '' : 'disabled'} title="Vers l’arrière">▼</button><button class="tm-b rm" data-rm="${m.uid}" title="Retirer">✕</button></div></div>`; };
     app.innerHTML = topbar('Équipe') + `<div class="page tm-page">
       <div class="tm-sum"><div class="tm-power"><small>Puissance d’équipe</small><b>${fmt(G.teamPower(s.team))}</b><span>${team.length} / ${G.TEAM_SIZE} Pokémon</span></div>
@@ -5912,14 +5945,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="tm-types">${types.map(typeBadge).join('')}</div>
         <div class="tm-hint">${compHint(team)}</div></div>
       <div class="tm-board">${B.ROWS.map(row => { const list = team.filter(m => G.rowOf(m) === row);
-        return `<section class="tm-lane lane-${row}"><div class="tm-lh"><b>${B.ROW_FR[row]}</b><span>${LANE_INFO[row][0]}</span><small>${LANE_INFO[row][1]}</small></div>
+        return `<section class="tm-lane lane-${row}"><div class="tm-lh"><b>${B.ROW_FR[row]} <em class="lane-cap ${list.length >= B.ROW_CAP[row] ? 'full' : ''}">${list.length}/${B.ROW_CAP[row]}</em></b><span>${LANE_INFO[row][0]}</span><small>${LANE_INFO[row][1]}</small></div>
           <div class="tm-cards">${list.map(card).join('') || '<p class="tm-empty">Personne sur cette ligne</p>'}</div></section>`; }).join('')}</div>
       ${free ? `<div class="tm-add">${Array.from({ length: free }, () => '<button class="tm-slot" data-add>＋ Ajouter un Pokémon</button>').join('')}</div>` : ''}
       <div class="tm-bar"><button class="btn" data-best>✨ Meilleure équipe auto</button>${after ? '<button class="btn primary" data-done>Valider l’équipe</button>' : ''}</div></div>`;
     bindBack(after || hub);
     const re = () => teamScreen(after);
     app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { if (s.team.length <= 1) return toast('Il faut au moins un Pokémon.'); s.team = s.team.filter(u => u !== b.dataset.rm); G.save(); re(); });
-    app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { G.setRow(b.dataset.mv, B.ROWS[+b.dataset.to]); re(); });
+    app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const to = B.ROWS[+b.dataset.to]; if (!G.setRow(b.dataset.mv, to)) return toast(`Ligne ${B.ROW_FR[to]} pleine (${B.ROW_CAP[to]} places) : déplaces-en un d’abord.`); re(); });
     app.querySelectorAll('[data-see]').forEach(b => b.onclick = () => { detailNav = s.team.slice(); monDetail(b.dataset.see, re); });
     app.querySelectorAll('[data-add]').forEach(b => b.onclick = () => monsScreen({ back: re, pick: u => { if (!s.team.includes(u) && s.team.length < G.TEAM_SIZE) s.team.push(u); G.save(); re(); } }));
     app.querySelector('[data-best]').onclick = () => { s.team = bestTeam(s.mons); for (const u of s.team) if (s.formation) delete s.formation[u]; G.save(); re(); };
@@ -6004,7 +6037,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Aperçu statique d'une formation (écran Équipe, préparation).
   function formationField(mons, enemies, biome) {
     const units = mons.map((m, i) => ({ uid: m.uid, mon: m, side: 'A', row: G.rowOf(m), name: monName(m), level: m.lv }))
-      .concat((enemies || []).map((e, i) => ({ uid: 'p' + i, mon: e.mon, side: 'B', row: B.DEFAULT_ROW[A.roleOf(e.mon.sid)], name: monName(e.mon), level: e.mon.lv, boss: e.boss })));
+      .concat((() => { const l = enemies || [], rows = B.fixRows(l.map(e => ({ role: A.roleOf(e.mon.sid), row: B.DEFAULT_ROW[A.roleOf(e.mon.sid)] }))); return l.map((e, i) => ({ uid: 'p' + i, mon: e.mon, side: 'B', row: rows[i], name: monName(e.mon), level: e.mon.lv, boss: e.boss })); })());
     return { units, html: `<div class="field3d mini"${biome ? ` data-bio="${biome}"` : ''}>${pitchHtml()}${units.map(u => unit3dHtml(u, { static: true })).join('')}</div>` };
   }
 
@@ -6887,7 +6920,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Combats', '<p>6 contre 6, au tour par tour. Chaque Pokémon remplit sa jauge d’action selon sa <b>Vitesse</b> (frise en haut : ordre des prochains tours). À son tour, il utilise une de ses <b>3 compétences</b> : I sans recharge, II et III (ultime) avec recharge. Touche une compétence, puis un adversaire. Appui long sur une compétence : sa description. Mode Auto et vitesse ×1/×2/×3/×5.</p><p>Types, STAB (×1,5), coups critiques, statuts (brûlure, poison, paralysie, sommeil, gel), bonus et malus de stats, soins.</p><p><b>Mécaniques spéciales</b> : <b>marque</b> (la cible subit plus de dégâts), <b>saignement</b> (dégâts sur la durée, cumulables jusqu’à 20 % des PV max par tour), <b>ricochet</b> (l’attaque rebondit sur d’autres ennemis), <b>brise-bouclier</b>, <b>rejoue</b> après avoir mis un ennemi K.O., <b>vol de bonus</b>, <b>montée en puissance</b> à chaque utilisation, <b>rage</b> (plus fort quand il est blessé). Chaque type a son style : Ténèbres et Vol rejouent, Électrik et Eau ricochent, Feu et Plante font saigner, Spectre et Psy marquent et volent, Acier, Roche, Sol et Glace brisent les boucliers, Dragon et Normal montent en puissance. Les ultimes des Légendaires, Fabuleux et Mythiques cumulent un ou deux de ces effets, et leur puissance grimpe nettement à chaque rareté.</p>')}
       ${sec('Rôles et équipe de 6', `<p>Chaque Pokémon a un rôle (icône sur sa carte), avec des compétences II et III qui lui sont propres :</p><ul>${A.ROLE_ORDER.map(r => `<li><b style="color:${A.ROLES[r].color}">${A.ROLES[r].i} ${A.ROLES[r].n}</b> : ${A.ROLES[r].d}</li>`).join('')}</ul><p>Une <b>Provocation</b> oblige les attaques ciblées à viser le tank. Les soins purifient statuts et malus. Le contrôle repousse la jauge d’action adverse, le soutien accélère la tienne. En fin de jeu, il faut une vraie équipe : idéalement un tank, un soigneur, deux attaquants et deux Pokémon de contrôle ou de soutien. « Meilleure équipe auto » suit ce modèle.</p>`)}
       ${sec('Types', `<p>Chaque Pokémon a 1 ou 2 types, et chaque compétence un type. <b>Super efficace</b> : ×2 (×4 si les deux types sont faibles) ; <b>peu efficace</b> : ×½ ; <b>aucun effet</b> : ×0. Une compétence du même type que son lanceur fait ×1,5. En combat, choisis une compétence : l'efficacité s'affiche sur chaque adversaire. Les fiches des Pokémon montrent faiblesses, résistances et immunités.</p><div class="row"><button class="btn small" data-chart>Ouvrir la table des types</button></div>`)}
-      ${sec('Terrain et formation', '<p>Les deux équipes se font face sur le terrain, chacune sur 3 lignes : <b>Avant</b>, <b>Milieu</b>, <b>Arrière</b>. Tant qu’un allié tient la ligne <b>Avant</b>, la ligne <b>Arrière</b> est hors d’atteinte des attaques ciblées (sauf provocation ou infiltration). Les lignes couvertes subissent aussi moins de dégâts : Milieu −20 %, Arrière −35 % (attaques de zone : −10 % et −20 %). Le tank devant protège donc soigneurs et soutiens. En combat, touche un adversaire pour en faire ta <b>cible prioritaire 🎯</b> : tes Pokémon l’attaquent en priorité, même en mode Auto. Change la ligne de chaque Pokémon dans l’écran Équipe. Les adversaires se placent selon leur rôle.</p><p><b>Campagne auto</b> : depuis la Campagne, un chapitre ou un combat de campagne, enchaîne automatiquement les étapes suivantes jusqu’à une défaite.</p>')}
+      ${sec('Terrain et formation', '<p>Les deux équipes se font face sur le terrain, chacune sur 3 lignes : <b>Avant</b>, <b>Milieu</b>, <b>Arrière</b>. Tant qu’un allié tient la ligne <b>Avant</b>, la ligne <b>Arrière</b> est hors d’atteinte des attaques ciblées (sauf provocation ou infiltration). Les lignes couvertes subissent aussi moins de dégâts : Milieu −20 %, Arrière −35 % (attaques de zone : −10 % et −20 %). Le tank devant protège donc soigneurs et soutiens. <b>Places limitées</b> : 2 à l’Avant, 3 au Milieu, 2 à l’Arrière. Placement conseillé : tanks devant, attaquants au milieu, soigneurs, soutiens et contrôle derrière ; <b>un attaquant placé à l’Arrière inflige −35 % de dégâts</b>. En combat, touche un adversaire pour en faire ta <b>cible prioritaire 🎯</b> : tes Pokémon l’attaquent en priorité, même en mode Auto. Change la ligne de chaque Pokémon dans l’écran Équipe. Les adversaires se placent selon leur rôle.</p><p><b>Campagne auto</b> : depuis la Campagne, un chapitre ou un combat de campagne, enchaîne automatiquement les étapes suivantes jusqu’à une défaite.</p>')}
       ${sec('Tour Infinie', `<p>Le mode le plus difficile, ouvert quand la campagne Difficile est terminée (en même temps que l’Enfer) : le premier étage vaut le milieu de l’Enfer, le sommet demande des âmes et une équipe optimisée. 100 étages contre des équipes de 6 Légendaires, Fabuleux et Mythiques, de plus en plus fortes. Chaque dizaine d’étages a son thème (${G.TOWER_THEMES.map(t => t.n).join(', ')}) avec des capacités spéciales à contrer : il faut adapter son équipe aux types, aux forces et aux pièges adverses. Tous les 10 étages, un boss ; première victoire : une Master Ball (et une rune Mythique). Arceus attend au sommet.</p>`)}
       ${sec('Raretés', `<p>${A.RARITY_ORDER.map(k => `<b style="color:${rar(k).color}">${rar(k).n}</b> (${rar(k).rate} %)`).join(' · ')}.</p><p>Normaux : Rattata, Chenipan, Mélo, Toudoudou, Roucool… · Rares : Pokémon sans évolution peu réputés · Épiques : Élektek, Magmar, Ronflex, Lokhlass, Scarhino… · Légendaires : starters, pseudo-légendaires, Pokémon « god tier » (Ectoplasma, Léviator, Pyrax…) · Fabuleux : les Pokémon fabuleux (Mew, Celebi, Jirachi, Arceus, Darkrai, Victini…) · Mythiques : les vrais légendaires.</p>`)}
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
