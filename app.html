@@ -1817,6 +1817,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   };
   const pickSalt = (arr, s, salt, n) => { const ok = arr.filter(r => !r.cond || r.cond(s)); const base = ok.length ? ok : arr; return base[hash(salt, n) % base.length]; };
   const HEAL_OFF_K = 3; // soins selon l'Attaque / Atq. Spé : % de la stat (calibré sur les PV moyens d'une cible)
+  const TANK_COUNTER_UP = 50; // % de puissance en plus quand la compétence I d'un tank sert de riposte (ensemble Riposte)
   const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
   const famKit = {};
@@ -1926,6 +1927,16 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const k = want && (kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim && x.slot === 0) || kit.find(x => x.pow && x.target === 'enemy' && !x.hits && !x.aim));
       if (k) { k.scale = want; k.pow = Math.round(k.pow * (want === 'spe' ? 0.92 : 1.05)); k.statScale = true; }
     }
+    // Tanks et ensemble Riposte : la compétence I sert de contre-attaque. Elle frappe avec la meilleure stat du tank
+    // (Défense / Déf. Spé ou PV) quand elle dépasse son offensive, et gagne +50 % de puissance en riposte.
+    if (role === 'tank') {
+      const k = kit.find(x => x.slot === 0 && x.pow && x.target === 'enemy');
+      if (k) {
+        const b = s.b, off = Math.max(b[1], b[3]), wall = Math.max(b[2], b[4]);
+        if (!k.scale && Math.max(wall, b[0]) > off + 5) { k.scale = b[0] > wall ? 'hp' : 'def'; k.pow = Math.round(k.pow * 1.05); k.statScale = true; }
+        k.counterUp = TANK_COUNTER_UP;
+      }
+    }
     // Trois façons de soigner selon le profil du soigneur (à stats typiques, toutes rendent autant qu'avant) :
     // · PV du soigneur (PV de base ≥ 100 et au-dessus de l'offensive) : % de SES PV max, divisé par sa stat de PV de base
     //   (×100/PV) pour que les géants comme Leuphorie ne soignent pas deux fois plus ;
@@ -1995,6 +2006,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (k.cleanse && k.target === 'allies') parts.push('Retire statuts et malus de l’équipe.');
     if (k.cdReduce) parts.push(`Réduit de ${k.cdReduce} tour la recharge des compétences des alliés.`);
     if (k.apBoost) parts.push(`Augmente de ${k.apBoost / 10} % la jauge d’action des alliés.`);
+    if (k.counterUp) parts.push(`Riposte : +${k.counterUp} % de puissance quand elle sert de contre-attaque (ensemble de runes Riposte).`);
     return parts.join(' ');
   }
 
@@ -2431,7 +2443,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         // Ensemble de runes Riposte : chance de contre-attaquer aussitôt avec la compétence I (pas de riposte en chaîne).
         if (!u.countering && t.alive && u.alive && total > 0 && t.st && t.st.counter > 0 && rand() * 100 < t.st.counter) {
           const k0 = t.skills.find(k => k.pow && k.c !== 1) || null;
-          if (k0 && !(t.ail && (t.ail.k === 'SOM' || t.ail.k === 'GEL'))) { t.countering = true; const r = damage(t, u, k0, 1, b, true); t.countering = false; let rest = r.dmg;
+          if (k0 && !(t.ail && (t.ail.k === 'SOM' || t.ail.k === 'GEL'))) { t.countering = true; const r = damage(t, u, k0, 1 + (k0.counterUp || 0) / 100, b, true); t.countering = false; let rest = r.dmg;
             if (u.shield > 0 && !t.passives.infiltrate) { const ab = Math.min(u.shield, rest); u.shield -= ab; rest -= ab; }
             u.hp = Math.max(0, u.hp - rest); log.push({ k: 'msg', who: t.uid, txt: `${t.name} contre-attaque avec ${k0.n} !` }); log.push({ k: 'dmg', who: u.uid, amount: r.dmg, crit: r.crit, tf: r.tf, src: t.uid, counter: true });
             if (u.hp <= 0 && fall(b, u, log)) t.kos++; }

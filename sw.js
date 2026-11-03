@@ -1,4 +1,4 @@
-const C='psa-1494024';const F=["./", "app.html", "manifest.webmanifest", "sprites/icon-192.png", "sprites/icon-512.png"];
+const C='psa-1494946';const F=["./", "app.html", "manifest.webmanifest", "sprites/icon-192.png", "sprites/icon-512.png"];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(F)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{const q=e.request,same=new URL(q.url).origin===location.origin,put=res=>{if(q.method==='GET'&&res.ok&&same){const cl=res.clone();caches.open(C).then(c=>c.put(q,cl));}return res;};if(q.mode==='navigate'){e.respondWith(fetch(q).then(put).catch(()=>caches.match(q).then(r=>r||caches.match('app.html'))));return;}e.respondWith(caches.match(q).then(r=>r||fetch(q).then(put).catch(()=>r)));});
