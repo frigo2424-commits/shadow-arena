@@ -2330,7 +2330,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const t = ev.who && by(ev.who); if (!t || !ev.amount) continue;
       if (ev.k === 'dmg') {
         t.stats.taken += ev.amount;
-        const src = ev.dot ? by(ev.src) : ev.recoil ? null : u;
+        const src = ev.dot || ev.counter ? by(ev.src) : ev.recoil ? null : u;
         if (src && src.side !== t.side) src.stats.dealt += ev.amount;
       } else if (ev.k === 'heal') { const src = (ev.src && by(ev.src)) || u; src.stats.healed += ev.amount; }
     }
@@ -2428,6 +2428,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         }
         log.push({ k: 'dmg', who: t.uid, amount: total, crit: anyCrit, tf });
         if (t.hp <= 0 && fall(b, t, log)) u.kos++;
+        // Ensemble de runes Riposte : chance de contre-attaquer aussitôt avec la compétence I (pas de riposte en chaîne).
+        if (!u.countering && t.alive && u.alive && total > 0 && t.st && t.st.counter > 0 && rand() * 100 < t.st.counter) {
+          const k0 = t.skills.find(k => k.pow && k.c !== 1) || null;
+          if (k0 && !(t.ail && (t.ail.k === 'SOM' || t.ail.k === 'GEL'))) { t.countering = true; const r = damage(t, u, k0, 1, b, true); t.countering = false; let rest = r.dmg;
+            if (u.shield > 0 && !t.passives.infiltrate) { const ab = Math.min(u.shield, rest); u.shield -= ab; rest -= ab; }
+            u.hp = Math.max(0, u.hp - rest); log.push({ k: 'msg', who: t.uid, txt: `${t.name} contre-attaque avec ${k0.n} !` }); log.push({ k: 'dmg', who: u.uid, amount: r.dmg, crit: r.crit, tf: r.tf, src: t.uid, counter: true });
+            if (u.hp <= 0 && fall(b, u, log)) t.kos++; }
+        }
         if (t.passives.thorns && total > 0 && u.alive) { const h = Math.round(total * t.passives.thorns / 100); u.hp = Math.max(0, u.hp - h); log.push({ k: 'dmg', who: u.uid, amount: h, recoil: true }); if (u.hp <= 0) fall(b, u, log); }
         if (u.passives.lifelink && total > 0 && u.alive) { const h = Math.min(u.maxHp - u.hp, Math.round(total * u.passives.lifelink / 100)); if (h > 0) { u.hp += h; log.push({ k: 'heal', who: u.uid, amount: h }); } }
         if (t.alive && u.statusAura && rand() * 100 < u.statusAura.v) inflict(t, u.statusAura.ail, log, u);
@@ -2587,20 +2595,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const RUNE_SETS = {
     fureur: { n: 'Fureur', need: 4, stat: 'atkp', v: 25, d: '+25 % Attaque et Atq. Spé' },
     celerite: { n: 'Célérité', need: 4, stat: 'spep', v: 20, d: '+20 % Vitesse' },
-    destruction: { n: 'Destruction', need: 4, stat: 'critd', v: 35, d: '+35 % Dégâts critiques' },
+    destruction: { n: 'Destruction', need: 4, stat: 'critd', v: 40, d: '+40 % Dégâts critiques' },
     vampire: { n: 'Vampire', need: 4, stat: 'leech', v: 15, d: 'Vol de vie : 15 % des dégâts infligés' },
     vitalite: { n: 'Vitalité', need: 2, stat: 'hpp', v: 15, d: '+15 % PV' },
     rempart: { n: 'Rempart', need: 2, stat: 'defp', v: 15, d: '+15 % Défense et Déf. Spé' },
-    lame: { n: 'Lame', need: 2, stat: 'crit', v: 10, d: '+10 % Critique' },
+    lame: { n: 'Lame', need: 2, stat: 'crit', v: 20, d: '+20 % Critique' },
     focus: { n: 'Focus', need: 2, stat: 'acc', v: 15, d: '+15 % Précision (toucher, chances de statut)' },
     tenacite: { n: 'Ténacité', need: 2, stat: 'res', v: 15, d: '+15 % Résistance aux statuts' },
     elan: { n: 'Élan', need: 2, stat: 'spep', v: 8, d: '+8 % Vitesse' },
+    riposte: { n: 'Riposte', need: 4, stat: 'counter', v: 20, d: '20 % de chances de contre-attaquer quand il est touché : il riposte aussitôt avec sa compétence I sur l’attaquant' },
     grace: { n: 'Grâce', need: 4, stat: 'healp', v: 30, d: '+30 % de soins prodigués : soins, régénération et soins d’équipe' },
   };
   // Runes recherchées par rôle : ensembles conseillés (du plus au moins utile) et stats utiles (principales et secondaires).
   const ROLE_RUNES = {
-    dps: { sets: ['fureur', 'destruction', 'lame', 'vampire', 'celerite', 'elan'], stats: ['atkp', 'critd', 'crit', 'atk', 'spe', 'spep', 'acc'] },
-    tank: { sets: ['rempart', 'vitalite', 'tenacite', 'vampire', 'elan'], stats: ['hpp', 'defp', 'hp', 'def', 'res', 'spe'] },
+    dps: { sets: ['fureur', 'destruction', 'lame', 'vampire', 'riposte', 'celerite', 'elan'], stats: ['atkp', 'critd', 'crit', 'atk', 'spe', 'spep', 'acc'] },
+    tank: { sets: ['rempart', 'vitalite', 'riposte', 'tenacite', 'vampire', 'elan'], stats: ['hpp', 'defp', 'hp', 'def', 'res', 'spe'] },
     heal: { sets: ['grace', 'vitalite', 'celerite', 'elan', 'rempart', 'tenacite'], stats: ['spe', 'spep', 'hpp', 'defp', 'hp', 'res'] },
     ctrl: { sets: ['focus', 'celerite', 'elan', 'tenacite', 'fureur'], stats: ['acc', 'spe', 'spep', 'atkp', 'res', 'hpp'] },
     sup: { sets: ['celerite', 'elan', 'focus', 'tenacite', 'vitalite', 'rempart'], stats: ['spe', 'spep', 'hpp', 'defp', 'res', 'acc'] },
@@ -2618,7 +2627,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const RUNE_RARITY = [null, { n: 'Normale', color: '#a7b1c6', subs: 0, m: 1 }, { n: 'Rare', color: '#3fa7ff', subs: 1, m: 1.1 }, { n: 'Épique', color: '#b56cff', subs: 2, m: 1.2 },
     { n: 'Légendaire', color: '#ffbd3a', subs: 3, m: 1.32 }, { n: 'Fabuleuse', color: '#5ee8ff', subs: 4, m: +(globalThis.MF || 1.4) }, { n: 'Mythique', color: '#ff4fa3', subs: 4, m: +(globalThis.MM || 1.5) }];
   const RUNE_MYTH = 6; // qualité la plus haute (Fabuleuse = 5)
-  const STATS_FR = { hp: 'PV', atk: 'Attaque', def: 'Défense', spe: 'Vitesse', hpp: 'PV %', atkp: 'Attaque %', defp: 'Défense %', spep: 'Vitesse %', crit: 'Critique %', critd: 'Dégâts crit. %', acc: 'Précision %', res: 'Résistance %', leech: 'Vol de vie %' };
+  const STATS_FR = { hp: 'PV', atk: 'Attaque', def: 'Défense', spe: 'Vitesse', hpp: 'PV %', atkp: 'Attaque %', defp: 'Défense %', spep: 'Vitesse %', crit: 'Critique %', critd: 'Dégâts crit. %', acc: 'Précision %', res: 'Résistance %', leech: 'Vol de vie %', counter: 'Contre-attaque %' };
   const MAIN_GROW = { atk: [4, 1.5], def: [3, 1.2], hp: [18, 7], hpp: [3, 1.3], atkp: [3, 1.3], defp: [3, 1.3], spe: [2, 0.7], crit: [2, 0.9], critd: [3, 1.6], acc: [3, 1.3], res: [3, 1.3] };
   const SUB_RANGE = { hp: [10, 25], atk: [2, 5], def: [2, 4], hpp: [2, 5], atkp: [2, 5], defp: [2, 5], spe: [1, 3], crit: [1, 3], critd: [2, 5], acc: [2, 5], res: [2, 5] };
   const SLOT_MAIN = { 1: ['atk'], 2: ['atkp', 'defp', 'hpp', 'spe'], 3: ['def'], 4: ['atkp', 'defp', 'hpp', 'crit', 'critd'], 5: ['hp'], 6: ['atkp', 'defp', 'hpp', 'acc', 'res'] };
@@ -2754,7 +2763,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const st = { hp: Math.floor((2 * b[0] + 31) * L / 100) + L + 10 };
     ['atk', 'def', 'spa', 'spd', 'spe'].forEach((k, i) => { st[k] = Math.floor((2 * b[i + 1] + 31) * L / 100) + 5; });
     st.crit = 15; st.critd = 150; st.acc = 0; st.res = 0; st.leech = 0;
-    const add = { hp: 0, atk: 0, def: 0, spe: 0, hpp: 0, atkp: 0, defp: 0, spep: 0, crit: 0, critd: 0, acc: 0, res: 0, leech: 0, healp: 0 };
+    const add = { hp: 0, atk: 0, def: 0, spe: 0, hpp: 0, atkp: 0, defp: 0, spep: 0, crit: 0, critd: 0, acc: 0, res: 0, leech: 0, healp: 0, counter: 0 };
     const runes = (mon.runes || []).map(id => id && S.runes.find(r => r.id === id)).filter(Boolean);
     for (const r of runes) { add[r.main] += mainValue(r); for (const x of r.subs) add[x.s] += x.v; }
     const sets = {}; for (const r of runes) sets[r.set] = (sets[r.set] || 0) + 1;
@@ -2763,7 +2772,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     for (const k of ['atk', 'spa']) st[k] = Math.round((st[k] + add.atk) * (1 + add.atkp / 100));
     for (const k of ['def', 'spd']) st[k] = Math.round((st[k] + add.def) * (1 + add.defp / 100));
     st.spe = Math.round((st.spe + add.spe) * (1 + add.spep / 100));
-    st.crit += add.crit; st.critd += add.critd; st.acc += add.acc; st.res += add.res; st.leech += add.leech; st.healp = add.healp;
+    st.crit += add.crit; st.critd += add.critd; st.acc += add.acc; st.res += add.res; st.leech += add.leech; st.healp = add.healp; st.counter = add.counter;
     // Bonus d'évolution sur une stat.
     for (const [k, v] of Object.entries(A.evoStatBonus(mon.sid))) st[k] = Math.round(st[k] * (1 + v / 100));
     const m = (mon.shiny ? SHINY_BONUS : 1) * ((opts && opts.mult) || 1) * A.statMult(mon.sid) * ({ F: 1.06, M: 1.1 }[A.rarOf(mon) !== A.RARITY[mon.sid] ? A.rarOf(mon) : ''] || 1) * (A.heroBoost ? A.heroBoost(mon) : 1) // forme ultime promue (Fabuleux +6 %, Mythique +10 %) ; formes héroïques +15 %
@@ -3340,7 +3349,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Forge des Runes : 4 forges (même progression de sous-niveaux), chacune avec ses ensembles de runes,
   // sa famille de Pokémon, son boss corrompu et son biome. On choisit celle des ensembles dont on a besoin.
   const RUNE_FORGES = {
-    assaut: { n: 'Forge de l’Assaut', sets: ['fureur', 'lame'], line: [137, 233, 474], boss: 890, bossN: 'Éthernatos', biome: 'volcano', mult: 0.75, d: 'Porygon, Porygon2 et Porygon-Z ; Éthernatos corrompu en est le cœur.' },
+    assaut: { n: 'Forge de l’Assaut', sets: ['fureur', 'lame', 'riposte'], line: [137, 233, 474], boss: 890, bossN: 'Éthernatos', biome: 'volcano', mult: 0.75, d: 'Porygon, Porygon2 et Porygon-Z ; Éthernatos corrompu en est le cœur.' },
     tempete: { n: 'Forge de la Tempête', sets: ['celerite', 'elan', 'focus'], line: [81, 82, 462], boss: 386, bossN: 'Deoxys', biome: 'storm', mult: 0.84, d: 'Magnéti, Magnéton et Magnézone ; Deoxys corrompu y file à la vitesse de l’éclair.' },
     bastion: { n: 'Forge du Bastion', sets: ['vitalite', 'rempart', 'tenacite'], line: [436, 437, 437], boss: 889, bossN: 'Zamazenta', biome: 'cave', mult: 0.75, d: 'Archéomire et Archéodong ; Zamazenta corrompu garde le bouclier ancestral.' },
     sang: { n: 'Forge du Sang', sets: ['vampire', 'destruction', 'grace'], line: [41, 42, 169], boss: 717, bossN: 'Yveltal', biome: 'ghost', mult: 0.66, d: 'Nosferapti, Nosferalto et Nostenfer ; Yveltal corrompu y draine la vie.' },
