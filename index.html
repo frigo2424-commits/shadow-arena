@@ -2070,12 +2070,20 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const formKits = {};
   A.formCat = mon => { const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, f = mon.form && A.formOf(mon); if (!f) return c0;
     return FORM_CAT[mon.sid + ':' + mon.form] || (f.b[1] > f.b[3] ? 2 : f.b[1] < f.b[3] ? 3 : c0); };
+  // Kits propres à une forme ultime (remplacent des compétences de la forme de base, mêmes emplacements).
+  const FORM_KIT = {
+    // Méga-Dracaufeu Y : I Feu monocible, II Feu sur toute l'équipe adverse, III Dragon monocible très puissante.
+    '6:mega:1': { 1: { t: 10, target: 'all', pow: 92, cd: 3, stab: true, recipe: 'sweep', n: 'Canicule Solaire', ail: 4, ailChance: 30, aim: null, critUp: 0, flinch: 0 },
+      2: { t: 16, target: 'enemy', pow: 200, cd: 4, stab: false, recipe: 'headhunt', n: 'Draco-Météore Solaire', crit: true, aim: null, stat: null, statChance: 0 } },
+  };
   A.skillsOfMon = mon => {
     const kit = skillsOf(mon.sid); if (!mon.form) return kit;
     const key = mon.sid + ':' + mon.form; if (formKits[key]) return formKits[key];
-    const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, c1 = A.formCat(mon);
-    return (formKits[key] = c1 === c0 ? kit : kit.map(k => { if (!k.pow || k.scale || k.c !== c0) return k;
-      const x = Object.assign({}, k, { c: c1 }); x.d = describe(x) + (k.evoUp ? ` Renforcée par l’évolution (+${k.evoUp} %).` : ''); return x; }));
+    const s = sp(mon.sid), c0 = s.b[1] >= s.b[3] ? 2 : 3, c1 = A.formCat(mon), edit = FORM_KIT[key];
+    if (c1 === c0 && !edit) return (formKits[key] = kit);
+    return (formKits[key] = kit.map((k, i) => { const e = edit && edit[i]; if (!e && (!k.pow || k.scale || k.c !== c0 || c1 === c0)) return k;
+      const x = Object.assign({}, k, e || {}, k.pow && !k.scale && k.c === c0 ? { c: c1 } : {}); for (const f of Object.keys(x)) if (x[f] === null || x[f] === 0 && ['critUp', 'flinch', 'statChance', 'ailChance'].includes(f)) delete x[f];
+      x.d = describe(x) + (k.evoUp ? ` Renforcée par l’évolution (+${k.evoUp} %).` : ''); return x; }));
   };
   A.statMult = statMult;
   A.passivesOf = passivesOf;
