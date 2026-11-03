@@ -2597,34 +2597,43 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return Math.round(sc * 10) / 10;
   }
   const RUNE_RARITY = [null, { n: 'Normale', color: '#a7b1c6', subs: 0, m: 1 }, { n: 'Rare', color: '#3fa7ff', subs: 1, m: 1.1 }, { n: 'Épique', color: '#b56cff', subs: 2, m: 1.2 },
-    { n: 'Légendaire', color: '#ffbd3a', subs: 3, m: 1.32 }, { n: 'Fabuleuse', color: '#5ee8ff', subs: 4, m: 1.38 }, { n: 'Mythique', color: '#ff4fa3', subs: 4, m: 1.45 }];
+    { n: 'Légendaire', color: '#ffbd3a', subs: 3, m: 1.32 }, { n: 'Fabuleuse', color: '#5ee8ff', subs: 4, m: +(globalThis.MF || 1.4) }, { n: 'Mythique', color: '#ff4fa3', subs: 4, m: +(globalThis.MM || 1.5) }];
   const RUNE_MYTH = 6; // qualité la plus haute (Fabuleuse = 5)
   const STATS_FR = { hp: 'PV', atk: 'Attaque', def: 'Défense', spe: 'Vitesse', hpp: 'PV %', atkp: 'Attaque %', defp: 'Défense %', spep: 'Vitesse %', crit: 'Critique %', critd: 'Dégâts crit. %', acc: 'Précision %', res: 'Résistance %', leech: 'Vol de vie %' };
   const MAIN_GROW = { atk: [4, 1.5], def: [3, 1.2], hp: [18, 7], hpp: [3, 1.3], atkp: [3, 1.3], defp: [3, 1.3], spe: [2, 0.7], crit: [2, 0.9], critd: [3, 1.6], acc: [3, 1.3], res: [3, 1.3] };
   const SUB_RANGE = { hp: [10, 25], atk: [2, 5], def: [2, 4], hpp: [2, 5], atkp: [2, 5], defp: [2, 5], spe: [1, 3], crit: [1, 3], critd: [2, 5], acc: [2, 5], res: [2, 5] };
   const SLOT_MAIN = { 1: ['atk'], 2: ['atkp', 'defp', 'hpp', 'spe'], 3: ['def'], 4: ['atkp', 'defp', 'hpp', 'crit', 'critd'], 5: ['hp'], 6: ['atkp', 'defp', 'hpp', 'acc', 'res'] };
   const RUNE_SLOTS = 6, RUNE_MAX = 15;
-  const mainValue = r => Math.round((MAIN_GROW[r.main][0] + MAIN_GROW[r.main][1] * r.lv) * RUNE_RARITY[r.rar].m);
+  // Bonus fixe de stat principale des deux plus hautes qualités (part de la valeur de base) : chaque cran se voit dès +0.
+  const MAIN_ADD = [0, 0, 0, 0, 0, 0.1, 0.15];
+  const mainValue = r => Math.round((MAIN_GROW[r.main][0] + MAIN_GROW[r.main][1] * r.lv) * RUNE_RARITY[r.rar].m + MAIN_GROW[r.main][0] * MAIN_ADD[r.rar]);
+  // Partie de la fourchette où tombent les tirages de stats secondaires selon la qualité (0 = minimum, 1 = maximum) :
+  // plus la rune est rare, plus ses tirages sont hauts et réguliers.
+  const ROLL_Q = [null, [0, 0.6], [0.1, 0.7], [0.2, 0.8], [0.3, 0.9], [0.45, 1], [0.6, 1]];
+  const rollSub = (k, rar, u) => { const [lo, hi] = SUB_RANGE[k], [q0, q1] = ROLL_Q[rar], q = q0 + (q1 - q0) * (u == null ? Math.random() : u);
+    return Math.max(1, Math.round((lo + (hi - lo) * q) * RUNE_RARITY[rar].m)); };
   function newSub(r) {
     const used = new Set([r.main, ...r.subs.map(x => x.s)]);
     const k = pick(Object.keys(SUB_RANGE).filter(x => !used.has(x)));
-    r.subs.push({ s: k, v: Math.round(rnd(...SUB_RANGE[k]) * RUNE_RARITY[r.rar].m) });
+    r.subs.push({ s: k, v: rollSub(k, r.rar) });
   }
   function makeRune(rar, set, slot) {
     slot = slot || rnd(1, RUNE_SLOTS);
     const r = { id: uid(), set: set || pick(Object.keys(RUNE_SETS)), slot, rar, lv: 0, main: pick(SLOT_MAIN[slot]), subs: [], on: null };
     for (let i = 0; i < RUNE_RARITY[rar].subs; i++) newSub(r);
+    if (rar === RUNE_MYTH) { const x = pick(r.subs); x.v += rollSub(x.s, rar); } // Mythique : une stat secondaire déjà renforcée
     return r;
   }
   // Amélioration façon Summoners War / Dislyte : coût croissant (de plus en plus vite après +6) et chance d'échec
-  // à partir de +7 ; un échec consomme quand même les Pokédollars. La puissance d'une rune +15 ne change pas :
-  // seul le chemin pour y arriver est plus long (coût moyen, échecs compris : ≈ ×1,1 jusqu'à +9, ×1,25 jusqu'à +12,
-  // ×1,5 jusqu'à +15), compensé par des gains de Pokédollars +60 % en Difficile et en Enfer (voir campaignReward).
-  const RUNE_UP_CHANCE = [100, 100, 100, 100, 100, 100, 95, 92, 90, 86, 82, 78, 72, 66, 60]; // % pour passer de +lv à +lv+1
+  // à partir de +7 ; un échec consomme quand même les Pokédollars. Les trois derniers niveaux (+12 → +15) sont le
+  // vrai investissement de fin de jeu : coût ×2,2 / ×3,2 / ×4,5 et réussite 60 / 50 / 40 %. Plus la rune est rare,
+  // plus chaque amélioration coûte cher (RUNE_RAR_COST). Pokédollars +60 % en Difficile et en Enfer (campaignReward).
+  const RUNE_UP_CHANCE = [100, 100, 100, 100, 100, 100, 95, 92, 90, 86, 82, 78, 60, 50, 40]; // % pour passer de +lv à +lv+1
+  const RUNE_RAR_COST = [0, 1, 1.6, 2.3, 3.2, 4.5, 6.2], RUNE_LATE_COST = { 12: 2.2, 13: 3.2, 14: 4.5 };
   const HIGH_GOLD = +(globalThis.HIGH_GOLD || 1.6); // Pokédollars de campagne en Difficile et Enfer
   const RUNE_UP_K = +(globalThis.RUNE_UP_K || 600); // courbure du coût (plus petit = plus cher en haut)
   const runeUpChance = r => r.lv >= RUNE_MAX ? 0 : RUNE_UP_CHANCE[r.lv];
-  const runeUpCost = r => Math.round(150 * (r.lv + 1) * (1 + r.lv * r.lv / RUNE_UP_K) * (1 + 0.6 * (r.rar - 1)) / 10) * 10;
+  const runeUpCost = r => Math.round(150 * (r.lv + 1) * (1 + r.lv * r.lv / RUNE_UP_K) * RUNE_RAR_COST[r.rar] * (RUNE_LATE_COST[r.lv] || 1) / 10) * 10;
   function upgradeRune(r, sure) { // sure : réservé aux outils de réglage (pas d'échec)
     if (r.lv >= RUNE_MAX) return false;
     const cost = runeUpCost(r); if (S.gold < cost) return 'gold';
@@ -2632,7 +2641,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     qTrack('rune');
     if (!sure && !globalThis.NO_RUNE_FAIL && Math.random() * 100 >= runeUpChance(r)) { S.stats.runeFails = (S.stats.runeFails || 0) + 1; save(); return 'fail'; }
     r.lv++;
-    if (r.lv % 3 === 0) { if (r.subs.length < 4) newSub(r); else { const x = pick(r.subs); x.v += Math.round(rnd(...SUB_RANGE[x.s]) * RUNE_RARITY[r.rar].m); } }
+    if (r.lv % 3 === 0) { if (r.subs.length < 4) newSub(r); else { const x = pick(r.subs); x.v += rollSub(x.s, r.rar); } }
     save(); return true;
   }
   // ---------- Éclats runiques : désintégration et Creuset runique ----------
@@ -2698,6 +2707,18 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   const runeSellValue = r => Math.round(200 * r.rar * r.rar * (1 + r.lv / 3));
   // Anciennes sauvegardes (4 emplacements, 6 ensembles) : conversion vers le nouveau système.
+  // Nouvelles règles de qualité (tirages par qualité, Fabuleuse ×1,45, Mythique ×1,6 + une stat renforcée) : les runes
+  // déjà possédées sont recalculées une fois, mêmes stats et même niveau, chaque tirage gardant sa place relative.
+  const OLD_M = [0, 1, 1.1, 1.2, 1.32, 1.38, 1.45];
+  function migrateRuneRoll() {
+    if (S.runeRoll) return; S.runeRoll = 1;
+    for (const r of S.runes || []) { if (!RUNE_RARITY[r.rar]) continue;
+      for (const x of r.subs) { const rg = SUB_RANGE[x.s]; if (!rg) continue; const [lo, hi] = rg, mid = (lo + hi) / 2;
+        const n = Math.max(1, Math.round(x.v / (mid * OLD_M[r.rar]))), raw = x.v / (n * OLD_M[r.rar]), u = Math.min(1, Math.max(0, (raw - lo) / (hi - lo)));
+        x.v = n * rollSub(x.s, r.rar, u); }
+      if (r.rar === RUNE_MYTH && r.subs.length) { const x = r.subs.reduce((a, b) => (b.v / SUB_RANGE[b.s][1] > a.v / SUB_RANGE[a.s][1] ? b : a)); x.v += rollSub(x.s, r.rar, 0.5); }
+    }
+  }
   function migrateRunes() {
     if (S.runeV === 2) { for (const r of S.runes) if (r.rar === 5) r.rar = RUNE_MYTH; S.runeV = 3; } // qualité Fabuleuse insérée avant Mythique
     if (S.runeV === 3) return;
@@ -3506,6 +3527,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const TOWER_CURVE = Object.assign([21, 38], globalThis.TOWER_CURVE || []);
   const TOWER_FIX = globalThis.NO_TOWER_FIX ? [] : [0.968,1.001,1.34,1.291,1.476,1.098,1.153,1.356,1.619,1.37,1.228,1.217,1.495,1.525,1.555,1.455,1.323,0.751,1.376,1.1,0.807,0.977,1.183,0.973,0.714,0.771,1.003,1.114,0.841,1.004,0.914,1.41,1.339,1.405,1.296,0.695,0.89,0.809,1.286,1.535,1.048,0.981,1.294,1.339,1.405,1.19,1.303,1.057,0.882,0.825,0.944,1.004,0.953,1.223,1.211,0.997,0.988,1.196,1.057,1.032,0.791,0.783,0.776,0.603,0.615,0.835,0.827,0.616,0.714,1.057,0.712,0.887,0.957,0.788,0.748,0.68,0.755,0.793,0.671,0.801,1.088,0.975,0.862,1.17,0.858,0.758,1.122,0.835,0.728,0.92,0.714,0.794,0.821,0.78,1.029,1.245,0.901,0.987,0.823,0.631];
   const towerTarget = n => 1000 * TOWER_CURVE[0] * Math.pow(TOWER_CURVE[1] / TOWER_CURVE[0], (n - 1) / (TOWER_FLOORS - 1));
+  // Runes plus fortes en haute qualité (tirages par qualité) : le haut de la Tour est relevé en douceur pour rester le
+  // défi ultime (aucun changement jusqu'à l'étage 30, puis jusqu'à +15 % à partir de l'étage 70).
+  const towerRuneK = n => 1 + 0.15 * Math.min(1, Math.max(0, (n - 30) / 40));
   // La Tour démarre au niveau du milieu de l'Enfer : elle s'ouvre avec lui, quand le Difficile est terminé.
   const towerOpen = () => campaignDone('hard');
   function towerFloor(n) {
@@ -3526,7 +3550,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const top = n === TOWER_FLOORS;
       return { mon, boss: isBoss, mult: enemyMult(mon.lv) * (isBoss ? (top ? 1.1 : 1.3) : 1), speMult: 1.15 + 0.003 * n, hpMult: isBoss ? (top ? 1.5 : 2) : 1, fx: th.fx };
     });
-    const k = towerTarget(n) / threat(enemies) * (TOWER_FIX[n - 1] || 1) * (globalThis.TOWER_X || 1); for (const e of enemies) e.mult *= k;
+    const k = towerTarget(n) / threat(enemies) * (TOWER_FIX[n - 1] || 1) * towerRuneK(n) * (globalThis.TOWER_X || 1); for (const e of enemies) e.mult *= k;
     return { kind: 'tower', n, lv, enemies, theme: th, boss, biome: TOWER_BIOMES[TOWER_THEMES.indexOf(th)] || 'psychic', reward: towerReward(n, n > (S.tower || {}).best) };
   }
   function towerReward(n, first) {
@@ -3630,13 +3654,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateRuneRoll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
     if (!snap || !snap.state) return false;
     try { S = Object.assign(fresh(), JSON.parse(snap.state)); localStorage.setItem(KEY, snap.state); localStorage.setItem(SAVED_AT, String(snap.at || Date.now())); } catch (e) { return false; }
-    migrateRunes(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); return true;
+    migrateRunes(); migrateRuneRoll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); return true;
   }
   const exportCode = () => 'PSA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(snapshot()))));
   function importCode(code) {
@@ -3650,7 +3674,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     S = fresh(); S.started = true; starterOffer = null;
     const st = newMon(starterSid, 5); st.shiny = false; S.mons.push(st); markDex(starterSid);
     S.team = [st.uid];
-    S.runes.push(makeRune(1, 'vitalite', 1), makeRune(1, 'vitalite', 5)); S.runeV = 3;
+    S.runes.push(makeRune(1, 'vitalite', 1), makeRune(1, 'vitalite', 5)); S.runeV = 3; S.runeRoll = 1;
     save();
   }
 
@@ -5436,7 +5460,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const fr = runeFilter.role;
     const list = s.runes.filter(r => (!runeFilter.slot || r.slot === runeFilter.slot) && (!runeFilter.set || r.set === runeFilter.set) && (!runeFilter.free || !r.on) && (!fr || fitLv(r, fr) > 0))
       .sort((a, b) => fr ? fitLv(b, fr) - fitLv(a, fr) || b.rar - a.rar || G.runeFit(b, fr) - G.runeFit(a, fr) || b.lv - a.lv : b.rar - a.rar || b.lv - a.lv);
-    app.innerHTML = topbar('Runes') + `<div class="page"><p class="muted small">${G.RUNE_SLOTS} emplacements par Pokémon (I Attaque, III Défense, V PV ; II, IV, VI variables). Les runes d’un même ensemble donnent un bonus par groupe de 2 ou 4. Qualité de Normale à Mythique : plus de stats secondaires et des valeurs plus fortes. Amélioration de +0 à +${G.RUNE_MAX} : nouvelle stat secondaire (ou renforcement) aux niveaux 3, 6, 9, 12 et 15. Coût croissant ; à partir de +7 l’amélioration peut échouer (95 % vers +7… 60 % vers +15) et l’échec coûte quand même les Pokédollars. Farme la Forge des Runes !</p>
+    app.innerHTML = topbar('Runes') + `<div class="page"><p class="muted small">${G.RUNE_SLOTS} emplacements par Pokémon (I Attaque, III Défense, V PV ; II, IV, VI variables). Les runes d’un même ensemble donnent un bonus par groupe de 2 ou 4. Qualité de Normale à Mythique : plus de stats secondaires, des tirages plus hauts et des valeurs plus fortes (la Mythique a en plus une stat secondaire déjà renforcée). Plus la qualité est haute, plus l’amélioration coûte cher. Amélioration de +0 à +${G.RUNE_MAX} : nouvelle stat secondaire (ou renforcement) aux niveaux 3, 6, 9, 12 et 15. Coût croissant ; à partir de +7 l’amélioration peut échouer (95 % vers +7… 78 % vers +12, puis 60, 50 et 40 % jusqu’à +15, avec un coût qui explose sur ces trois derniers niveaux) et l’échec coûte quand même les Pokédollars. Farme la Forge des Runes !</p>
       <div class="chips">${[0, 1, 2, 3, 4, 5, 6].map(n => `<button class="chip ${runeFilter.slot === n ? 'on' : ''}" data-f="${n}">${n ? ROMAN[n - 1] : 'Tous emplacements'}</button>`).join('')}</div>
       <div class="chips">${['', ...Object.keys(G.RUNE_SETS)].map(k => `<button class="chip ${runeFilter.set === k ? 'on' : ''}" data-set="${k}">${k ? esc(G.RUNE_SETS[k].n) : 'Tous ensembles'}</button>`).join('')}<button class="chip ${runeFilter.free ? 'on' : ''}" data-free>Non équipées</button></div>
       <div class="chips"><span class="muted small chips-lbl">Pour le rôle :</span>${['', ...A.ROLE_ORDER].map(k => `<button class="chip ${fr === k ? 'on' : ''}" data-role="${k}">${k ? `${A.ROLES[k].i} ${esc(A.ROLES[k].n)}` : 'Tous'}</button>`).join('')}</div>
@@ -6471,7 +6495,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${sec('Raretés', `<p>${A.RARITY_ORDER.map(k => `<b style="color:${rar(k).color}">${rar(k).n}</b> (${rar(k).rate} %)`).join(' · ')}.</p><p>Normaux : Rattata, Chenipan, Mélo, Toudoudou, Roucool… · Rares : Pokémon sans évolution peu réputés · Épiques : Élektek, Magmar, Ronflex, Lokhlass, Scarhino… · Légendaires : starters, pseudo-légendaires, Pokémon « god tier » (Ectoplasma, Léviator, Pyrax…) · Fabuleux : les Pokémon fabuleux (Mew, Celebi, Jirachi, Arceus, Darkrai, Victini…) · Mythiques : les vrais légendaires.</p>`)}
       ${sec('Niveaux, étoiles et évolutions', '<p>Chaque palier d’étoiles est une évolution. La forme finale plafonne au niveau <b>80</b> (★★★★), chaque forme avant elle 10 niveaux plus bas : Salamèche 60 (★★), Reptincel 70 (★★★), Dracaufeu 80. Les Pokémon <b>Légendaires, Fabuleux et Mythiques</b> (forme finale) montent directement jusqu’au niveau <b>100</b> (★★★★★★). Pour les autres, la <b>forme ultime</b> (Méga-Évolution ou Gigamax) ouvre le niveau <b>100</b> (★★★★★★).</p><p>Pour évoluer : atteindre le niveau max de la forme, puis payer des cristaux du type du Pokémon et des Pokédollars. Forme ultime : Méga-Cristaux ou Particules Dynamax (Sanctuaire Ultime).</p>')}
       ${sec('Expérience', '<p>Les combats donnent de l’expérience à l’équipe. Les bonbons S, M, L (Grotte Gourmande) en donnent beaucoup, contre quelques Pokédollars.</p>')}
-      ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Amélioration de +0 à +${G.RUNE_MAX}, de plus en plus chère, avec un risque d’échec à partir de +7 (les Pokédollars sont perdus en cas d’échec). Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
+      ${sec('Runes', `<p>${G.RUNE_SLOTS} emplacements : I Attaque, III Défense, V PV (valeurs fixes) ; II, IV et VI avec une stat principale variable (%, Vitesse, critique, précision, résistance).</p><p>Ensembles : ${Object.values(G.RUNE_SETS).map(st => `<b>${st.n}</b> (${st.need}) ${st.d}`).join(' ; ')}.</p><p>Qualités : ${G.RUNE_RARITY.slice(1).map(q => `<b style="color:${q.color}">${q.n}</b> (${q.subs} stat${q.subs > 1 ? 's' : ''} secondaire${q.subs > 1 ? 's' : ''})`).join(', ')}. Plus la qualité est haute, plus les tirages sont hauts et réguliers ; la Mythique a en plus une stat secondaire déjà renforcée. Amélioration de +0 à +${G.RUNE_MAX}, de plus en plus chère (et plus chère pour les qualités élevées), avec un risque d’échec à partir de +7 ; de +12 à +15, coût très élevé et réussite 60, 50 puis 40 % (les Pokédollars sont perdus en cas d’échec). Les runes se farment à la Forge des Runes : les sous-niveaux élevés donnent de meilleures qualités. Sans runes, la fin de la campagne est impossible.</p>`)}
       ${sec('Modes', '<p><b>Campagne</b> : 12 chapitres × 10 étapes, chacun avec son biome animé, boss à la 10e. Les équipes adverses sont fixes, les mêmes pour tous les joueurs, et la difficulté a été réglée étape par étape. Jusqu’à 3 étoiles par étape selon les K.O. subis. Première victoire : gemmes.</p><p><b>Difficile</b> et <b>Enfer</b> : la suite de la campagne dans les mêmes chapitres, sans retour en arrière de difficulté. Le Difficile (niveaux 76 à 100) commence un cran au-dessus de la fin de la Normale, l’Enfer (niveau 100, formes ultimes) au-dessus de la fin du Difficile ; il se termine avec 6 Légendaires niveau max et des runes Légendaires ou Mythiques +15. Récompenses ×2,5 / ×5, bonbons L et une rune Épique à Mythique à chaque première victoire. Chaque mode s’ouvre quand le précédent est terminé.</p><p><b>Arène</b> : 10 combats par jour contre des dresseurs de ton niveau ; classement de Bronze à Maître.</p><p><b>Donjons</b> : 4 donjons de 10 sous-niveaux et le Sanctuaire Ultime (2 autels), chacun en 3 vagues avec le boss final à la dernière (ton équipe garde ses PV entre les vagues) : Grotte Gourmande (bonbons, boss Regigigas corrompu escorté d’un Ronflex géant), Temple Élémentaire (cristaux, Necrozma corrompu et un Évoli gardien), Forge des Runes (4 forges au choix selon les ensembles voulus : Assaut, Tempête, Bastion, Sang, chacune avec son boss corrompu), Mine Dorée (Pokédollars, Miaouss, Persian et Mordudor, Mewtwo corrompu), Sanctuaire Ultime (ouvert quand le 10e sous-niveau des 4 autres donjons est vaincu : Autel Méga, Méga-Cristaux, gardé par Méga-Rayquaza corrompu ; Autel Gigamax, Particules Dynamax, gardé par Zacian corrompu ; un cran au-dessus des 10e sous-niveaux). Le boss corrompu, entouré d’une aura d’ombre (+10 % de dégâts, vol de vie 10 %), est toujours escorté de 5 Pokémon du donjon ; il prend sa forme ultime au 10e sous-niveau. Bouton ×10 pour enchaîner 10 fois le même sous-niveau.</p>')}
       ${sec('Invocation et Poké Balls', `<p>4 invocations, chacune avec sa Ball, de la plus commune à la plus rare : ${Object.values(G.BANNERS).map(bn => `<b>${bn.n}</b> (${ratesTxt(bn)})`).join(' ; ')}. Poké Balls et Hyper Balls aussi achetables avec des gemmes.</p><p>Les Balls se gagnent avec les <b>Succès</b> : niveau de dresseur, régions libérées, étapes et étoiles de campagne, sous-niveaux de donjon, victoires et rang d'arène, Pokédex, invocations, niveaux, évolutions, formes ultimes, runes. Chromatique : 1 %, +20 % de stats, +10 % de dégâts et le premier statut subi bloqué à chaque combat. Un doublon devient des cristaux d'évolution.</p><p><b>Garanties</b>, affichées sur chaque invocation avec le nombre de tirages restants : <b>Poké Ball</b>, un Légendaire au plus tard à la 20e de tes 20 premières invocations, puis tous les 80 tirages sans Légendaire ; <b>Super Ball</b> (25 Pokémon du jour, dont 1 Légendaire, liste renouvelée à minuit), le Légendaire du jour au plus tard au 40e tirage sans lui ; <b>Hyper Ball</b>, un Légendaire au plus tard au 30e tirage sans Légendaire ; <b>Master Ball</b>, un Mythique au plus tard au ${G.PITY_MYTH}e tirage sans Mythique. Chaque compteur repart à zéro quand la rareté visée sort.</p>`)}
     </div>`;
