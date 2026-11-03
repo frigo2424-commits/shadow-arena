@@ -5810,12 +5810,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const b = G.buildBattle(spec);
     const byUid = Object.fromEntries(b.units.map(u => [u.uid, u]));
     for (const w of b.waves || []) for (const u of w) byUid[u.uid] = u;
-    const camp = spec.kind === 'campaign'; noBack();
+    const camp = spec.kind === 'campaign', tower = spec.kind === 'tower', chain = camp || tower; noBack();
+    const chainLbl = tower ? 'Tour auto' : 'Camp. auto';
     Music.play(spec.kind === 'dungeon' ? 'cave' : spec.kind === 'tower' ? 'legend' : spec.boss || spec.enemies.some(e => e.boss) ? 'boss' : 'battle');
-    if (camp && autoCamp) auto = true;
+    if (chain && autoCamp) auto = true;
     const run = spec.kind === 'dungeon' && dungeonRun && dungeonRun.k === spec.k && dungeonRun.f === spec.f && dungeonRun.b === spec.b ? dungeonRun : null;
     if (run) auto = true;
-    app.innerHTML = `<div class="battle-wrap"><div class="b-top"><div class="order"></div>${b.waveTotal > 1 ? `<span class="wave-ind">Vague 1 / ${b.waveTotal}</span>` : ''}<div class="b-ctl"><button class="btn tiny" data-auto>${auto ? 'Auto ✓' : 'Auto'}</button>${camp ? `<button class="btn tiny ${autoCamp ? 'on' : ''}" data-autocamp title="Enchaîne les étapes suivantes">${autoCamp ? 'Camp. auto ✓' : 'Camp. auto'}</button>` : ''}<button class="btn tiny" data-speed>×${speed}</button><button class="btn tiny ghost" data-quit>Abandon</button></div></div>
+    app.innerHTML = `<div class="battle-wrap"><div class="b-top"><div class="order"></div>${b.waveTotal > 1 ? `<span class="wave-ind">Vague 1 / ${b.waveTotal}</span>` : ''}<div class="b-ctl"><button class="btn tiny" data-auto>${auto ? 'Auto ✓' : 'Auto'}</button>${chain ? `<button class="btn tiny ${autoCamp ? 'on' : ''}" data-autocamp title="${tower ? 'Enchaîne les étages suivants' : 'Enchaîne les étapes suivantes'}">${autoCamp ? chainLbl + ' ✓' : chainLbl}</button>` : ''}<button class="btn tiny" data-speed>×${speed}</button><button class="btn tiny ghost" data-quit>Abandon</button></div></div>
       <div class="field field3d">${pitchHtml()}${b.units.map(u => unit3dHtml(u)).join('')}<div class="banner" hidden></div><div class="fx"></div></div>
       <div class="b-panel"><div class="b-msg">Que le combat commence !</div><div class="skills"></div></div></div>`;
     const $ = q => app.querySelector(q);
@@ -5979,9 +5980,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       toast(b.focus ? `🎯 Cible prioritaire : ${t.name}${B.guarded(b, t) ? ' (protégée tant que la ligne Avant tient)' : ''}` : 'Cible prioritaire retirée');
     });
     function skillTip(sk) { modal(skillHtml(sk) + '<div class="row end"><button class="btn" data-close>OK</button></div>'); }
-    const syncAuto = () => { $('[data-auto]').textContent = auto ? 'Auto ✓' : 'Auto'; const ac = $('[data-autocamp]'); if (ac) { ac.textContent = autoCamp ? 'Camp. auto ✓' : 'Camp. auto'; ac.classList.toggle('on', autoCamp); } };
+    const syncAuto = () => { $('[data-auto]').textContent = auto ? 'Auto ✓' : 'Auto'; const ac = $('[data-autocamp]'); if (ac) { ac.textContent = autoCamp ? chainLbl + ' ✓' : chainLbl; ac.classList.toggle('on', autoCamp); } };
     $('[data-auto]').onclick = () => { auto = !auto; if (!auto) autoCamp = false; syncAuto(); try { localStorage.setItem('psa_auto', auto ? '1' : '0'); } catch (x) { /* ignore */ } if (auto && b._autoHook) b._autoHook(); };
-    if (camp) $('[data-autocamp]').onclick = () => { autoCamp = !autoCamp; if (autoCamp) auto = true; syncAuto(); if (auto && b._autoHook) b._autoHook(); toast(autoCamp ? 'Campagne auto : les étapes suivantes s’enchaînent jusqu’à une défaite.' : 'Campagne auto arrêtée.'); };
+    if (chain) $('[data-autocamp]').onclick = () => { autoCamp = !autoCamp; if (autoCamp) auto = true; syncAuto(); if (auto && b._autoHook) b._autoHook(); toast(tower ? (autoCamp ? 'Tour auto : les étages suivants s’enchaînent jusqu’à une défaite.' : 'Tour auto arrêtée.') : (autoCamp ? 'Campagne auto : les étapes suivantes s’enchaînent jusqu’à une défaite.' : 'Campagne auto arrêtée.')); };
     $('[data-speed]').onclick = e => { speed = speed === 1 ? 2 : speed === 2 ? 3 : speed === 3 ? 5 : 1; e.target.textContent = '×' + speed; try { localStorage.setItem('psa_speed', speed); } catch (x) { /* ignore */ } };
     $('[data-quit]').onclick = async () => { if (await confirmBox('Abandonner ce combat ?', 'Abandonner')) { quit = true; if (b._autoHook) b._autoHook(); } };
     (async () => {
@@ -6008,14 +6009,15 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
           <div class="loot">${lootHtml(run.loot)}<span>+${fmt(run.exp)} exp par Pokémon au total</span></div></div><div class="row end"><button class="btn primary" data-close>Continuer</button></div>`, null, { locked: true, cls: 'center' });
         return run.onEnd();
       }
-      let next = camp && autoCamp && res.win ? nextStage(spec.c, spec.i) : null;
-      if (next && !G.stageUnlocked(next.c, next.i, spec.d)) next = null;
-      if (camp && autoCamp && !res.win) { autoCamp = false; toast('Campagne auto arrêtée : défaite. Renforce ton équipe !'); }
-      if (camp && autoCamp && !next) autoCamp = false;
-      const r = await resultModal(spec, res, next);
+      let next = camp && autoCamp && res.win ? nextStage(spec.c, spec.i) : tower && autoCamp && res.win && spec.n < G.TOWER_FLOORS ? { floor: spec.n + 1 } : null;
+      if (next && camp && !G.stageUnlocked(next.c, next.i, spec.d)) next = null;
+      const what = tower ? 'Tour auto' : 'Campagne auto';
+      if (chain && autoCamp && !res.win) { autoCamp = false; toast(`${what} arrêtée : défaite. Renforce ton équipe !`); }
+      if (chain && autoCamp && !next) autoCamp = false;
+      const r = await resultModal(spec, res, next && tower ? { label: `Étage suivant : <b>${next.floor}</b>`, stop: 'Arrêter la Tour auto' } : next);
       await showNotices();
-      if (next && autoCamp && r !== 'stop') campaignBattle(next.c, next.i, spec.d);
-      else { if (r === 'stop') { autoCamp = false; toast('Campagne auto arrêtée.'); } onEnd(); }
+      if (next && autoCamp && r !== 'stop') { if (tower) battleScreen(G.towerFloor(next.floor), onEnd); else campaignBattle(next.c, next.i, spec.d); }
+      else { if (r === 'stop') { autoCamp = false; toast(`${what} arrêtée.`); } onEnd(); }
     })();
   }
 
@@ -6193,10 +6195,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       <section class="tower-theme"><h3>${esc(th.n)} · étages ${dec * 10 + 1} à ${dec * 10 + 10}</h3><p><b>Capacités adverses :</b> ${esc(th.d)}</p><p class="tip"><b>Pour contrer :</b> ${esc(th.tip)}</p>
         ${th.types ? `<div>Types dominants : ${th.types.map(typeBadge).join(' ')}</div>` : ''}</section>
       <div class="tfloors">${floors.map(n => { const done = n <= best, cur = n === best + 1, boss = n % 10 === 0; return `<button class="tfloor ${done ? 'done' : ''} ${cur ? 'cur' : ''} ${boss ? 'boss' : ''}" data-n="${n}" ${open && n <= best + 1 ? '' : 'disabled'}><b>${n}</b>${boss ? ballHtml('master', 'tiny') : ''}${done ? '<i>✓</i>' : cur ? '<i>▶</i>' : '<i>🔒</i>'}</button>`; }).join('')}</div>
-      ${open && best < G.TOWER_FLOORS ? `<div class="row end"><button class="btn primary big" data-n="${next}">Défier l’étage ${next}</button></div>` : ''}</div>`;
+      ${open && best < G.TOWER_FLOORS ? `<div class="row end"><button class="btn" data-tauto title="Combats automatiques, étage après étage, jusqu’à une défaite">▶ Tour auto</button><button class="btn primary big" data-n="${next}">Défier l’étage ${next}</button></div>` : ''}</div>`;
     bindBack();
     app.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { towerDecade = +b.dataset.dec; towerScreen(); });
+    const ta = app.querySelector('[data-tauto]');
+    if (ta) ta.onclick = () => { autoCamp = true; auto = true; toast('Tour auto : les étages s’enchaînent jusqu’à une défaite.'); battleScreen(G.towerFloor(next), towerScreen); };
     app.querySelectorAll('[data-n]').forEach(b => b.onclick = () => {
+      autoCamp = false;
       const n = +b.dataset.n, spec = G.towerFloor(n);
       spec.rewardHtml = `<section class="tower-theme"><h3>${esc(spec.theme.n)}</h3><p><b>Capacités adverses :</b> ${esc(spec.theme.d)}</p><p class="tip"><b>Pour contrer :</b> ${esc(spec.theme.tip)}</p></section>
         <section><h3>Récompenses ${n > best ? '(première victoire)' : ''}</h3><div class="loot">${lootHtml(spec.reward)}</div></section>`;
