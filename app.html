@@ -1298,6 +1298,86 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .chip.shiny-chip { --rc: #ffd34a; }
 .stats div:has(.stat-note) { flex-wrap: wrap; } .stats .stat-note { display: block; width: 100%; text-align: right; font-size: 9.5px; color: var(--muted); font-weight: 600; }
 
+/* Sets de runes sauvegardés */
+.rune-presets-bar { gap: 8px; flex-wrap: wrap; margin: 6px 0 8px; }
+.txt-in { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #0b0814; background: #fffdf6; color: #14101c; font: inherit; font-weight: 700; margin: 8px 0; }
+.preset-list { display: grid; gap: 10px; }
+.preset-card { border: 1px solid var(--line, #2c2640); border-radius: 12px; padding: 10px; background: rgba(255,255,255,.03); }
+.preset-top { display: grid; gap: 2px; }
+.preset-runes { display: flex; gap: 5px; margin: 8px 0 4px; flex-wrap: wrap; }
+.pr-r { min-width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; font-weight: 800; font-size: 12px; line-height: 1; border: 2px solid var(--rr); color: var(--rr); background: color-mix(in srgb, var(--rr) 12%, transparent); }
+.pr-r small { font-size: 9px; opacity: .85; }
+.pr-r.empty { --rr: #555; opacity: .5; }
+.warn-txt { color: #ffb15e; }
+
+/* ===== Effets de sorts par type ===== */
+/* Projectiles */
+.fx-proj.t-flame { width: 26px; height: 26px; background: radial-gradient(circle at 40% 40%, #fff7c2 0 18%, #ffb12e 38%, var(--fc) 60%, transparent 72%); box-shadow: 0 0 18px 8px color-mix(in srgb, var(--fc) 65%, transparent), -14px 0 18px 2px color-mix(in srgb, var(--fc) 40%, transparent); }
+.fx-proj.t-bubble { width: 24px; height: 24px; background: radial-gradient(circle at 35% 30%, #fff 0 10%, transparent 14%), radial-gradient(circle, transparent 50%, color-mix(in srgb, var(--fc) 80%, #fff) 62%, transparent 72%); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--fc) 50%, transparent); }
+.fx-proj.t-shard { width: 14px; height: 28px; border-radius: 2px; background: linear-gradient(160deg, #fff, var(--fc) 60%, #ffffff55); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); box-shadow: none; filter: drop-shadow(0 0 6px var(--fc)); }
+.fx-proj.t-leaf { width: 22px; height: 12px; border-radius: 0 100% 0 100%; background: linear-gradient(135deg, #e9ffd6, var(--fc)); box-shadow: 0 0 8px var(--fc); }
+.fx-proj.t-wisp { width: 30px; height: 30px; background: radial-gradient(circle, #f2e6ff 0 15%, var(--fc) 40%, transparent 70%); filter: blur(1.5px); box-shadow: 0 0 22px 8px color-mix(in srgb, var(--fc) 55%, transparent); }
+.fx-proj.t-star { width: 26px; height: 26px; background: none; box-shadow: none; }
+.fx-proj.t-star::before { content: '✦'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; color: #fff; text-shadow: 0 0 8px var(--fc), 0 0 16px var(--fc); }
+
+/* Particules d'impact (direction aléatoire --dx/--dy) */
+.fx-p { position: absolute; transform: translate(-50%, -50%); animation: fxp .8s cubic-bezier(.2,.7,.3,1) forwards; pointer-events: none; }
+@keyframes fxp { from { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } 70% { opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.35) rotate(var(--rot)); opacity: 0; } }
+.fx-p-ember { width: 7px; height: 7px; border-radius: 50%; background: #ffe08a; box-shadow: 0 0 8px 3px var(--fc); }
+.fx-p-drop { width: 8px; height: 8px; border-radius: 50% 50% 50% 0; background: color-mix(in srgb, var(--fc) 70%, #fff); box-shadow: 0 0 6px var(--fc); }
+.fx-p-spark { width: 3px; height: 14px; border-radius: 2px; background: #fff; box-shadow: 0 0 6px 2px var(--fc); }
+.fx-p-crystal { width: 9px; height: 9px; background: linear-gradient(135deg, #fff, var(--fc)); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); filter: drop-shadow(0 0 4px #bff); }
+.fx-p-leaf { width: 12px; height: 7px; border-radius: 0 100% 0 100%; background: linear-gradient(135deg, #d8ffb8, var(--fc)); }
+.fx-p-wisp { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #f3e8ff, var(--fc) 60%, transparent 72%); filter: blur(1px); }
+.fx-p-shadow { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle, #2b1d3a, #000 60%, transparent 72%); }
+.fx-p-scale { width: 9px; height: 11px; background: linear-gradient(160deg, #c9b8ff, var(--fc)); clip-path: polygon(50% 0, 100% 30%, 80% 100%, 20% 100%, 0 30%); }
+.fx-p-star { width: 12px; height: 12px; }
+.fx-p-star::before { content: '✦'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; color: #fff; text-shadow: 0 0 6px var(--fc); }
+.fx-p-rock { width: 11px; height: 10px; background: linear-gradient(135deg, #e8d9a8, #7a6232); clip-path: polygon(20% 0, 85% 10%, 100% 60%, 60% 100%, 0 75%); }
+.fx-p-dust { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--fc) 80%, #fff), transparent 70%); }
+.fx-p-dot { width: 4px; height: 4px; border-radius: 50%; background: #1b2a10; box-shadow: 0 0 3px var(--fc); }
+.fx-p-feather { width: 5px; height: 16px; border-radius: 50%; background: linear-gradient(#fff, color-mix(in srgb, var(--fc) 60%, #fff)); }
+
+/* Effets spéciaux d'impact */
+.fx-x { position: absolute; transform: translate(-50%, -50%); pointer-events: none; animation: fxx .8s ease-out forwards; }
+@keyframes fxx { from { transform: translate(-50%, -50%) scale(calc(.3 * var(--k, 1))); opacity: 1; } to { transform: translate(-50%, -50%) scale(calc(1.6 * var(--k, 1))); opacity: 0; } }
+.fx-blast { width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, #fff6c8 0 15%, #ffb12e 35%, var(--fc) 55%, transparent 70%); }
+.fx-splash, .fx-ring { width: 80px; height: 80px; border-radius: 50%; border: 4px solid color-mix(in srgb, var(--fc) 75%, #fff); box-shadow: 0 0 12px var(--fc); }
+.fx-ring { border-width: 3px; border-color: #fff; }
+.fx-flash { width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, #fff 0 20%, color-mix(in srgb, var(--fc) 70%, transparent) 40%, transparent 70%); animation-name: fxflash; }
+@keyframes fxflash { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; } 20% { opacity: .2; } 35% { opacity: 1; } to { transform: translate(-50%, -50%) scale(1.5); opacity: 0; } }
+.fx-frost { width: 60px; height: 60px; display: grid; place-items: center; }
+.fx-frost::before { content: '❄'; font-size: 54px; color: #e9ffff; text-shadow: 0 0 10px var(--fc), 0 0 20px var(--fc); }
+.fx-rings { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--fc); box-shadow: 0 0 10px var(--fc), 0 0 0 10px color-mix(in srgb, var(--fc) 35%, transparent), 0 0 0 22px color-mix(in srgb, var(--fc) 18%, transparent); animation-name: fxrings; }
+@keyframes fxrings { from { transform: translate(-50%, -50%) scale(.3) rotate(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(calc(2.4 * var(--k, 1))) rotate(90deg); opacity: 0; } }
+.fx-haunt { width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, transparent 30%, color-mix(in srgb, var(--fc) 60%, transparent) 50%, transparent 70%); filter: blur(2px); animation-name: fxhaunt; }
+@keyframes fxhaunt { from { transform: translate(-50%, -30%) scale(.5); opacity: 0; } 30% { opacity: 1; } to { transform: translate(-50%, -110%) scale(1.4); opacity: 0; } }
+.fx-claws { width: 64px; height: 64px; background: repeating-linear-gradient(115deg, transparent 0 12px, #1a0f24 12px 16px, color-mix(in srgb, var(--fc) 70%, #fff) 16px 18px, transparent 18px 26px); clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%); animation-name: fxclaws; }
+@keyframes fxclaws { from { transform: translate(-50%, -50%) scaleY(.1); opacity: 1; } 40% { transform: translate(-50%, -50%) scaleY(1.1); opacity: 1; } to { transform: translate(-50%, -50%) scaleY(1); opacity: 0; } }
+.fx-spiral { width: 80px; height: 80px; border-radius: 50%; background: conic-gradient(from 0deg, transparent, var(--fc), #fff, var(--fc), transparent 60%, var(--fc), transparent); mask: radial-gradient(circle, transparent 35%, #000 37%, #000 60%, transparent 62%); -webkit-mask: radial-gradient(circle, transparent 35%, #000 37%, #000 60%, transparent 62%); animation-name: fxspiral; }
+@keyframes fxspiral { from { transform: translate(-50%, -50%) scale(.4) rotate(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(calc(1.5 * var(--k, 1))) rotate(540deg); opacity: 0; } }
+.fx-twinkle { width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, #fff 0 8%, color-mix(in srgb, var(--fc) 60%, transparent) 30%, transparent 65%); }
+.fx-pow { width: 70px; height: 70px; display: grid; place-items: center; animation-name: fxpow; }
+.fx-pow::before { content: '✸'; font-size: 66px; line-height: 1; color: #fff3b0; text-shadow: 0 0 8px var(--fc), 0 0 2px #000; }
+@keyframes fxpow { from { transform: translate(-50%, -50%) scale(.2) rotate(-20deg); opacity: 1; } 35% { transform: translate(-50%, -50%) scale(calc(1.2 * var(--k, 1))) rotate(5deg); opacity: 1; } to { transform: translate(-50%, -50%) scale(calc(1.3 * var(--k, 1))); opacity: 0; } }
+.fx-dust { width: 90px; height: 40px; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in srgb, var(--fc) 70%, #fff) 0 20%, transparent 70%); margin-top: 22px; }
+.fx-crack { width: 110px; height: 18px; margin-top: 26px; background: linear-gradient(90deg, transparent, #2a1c08 15%, color-mix(in srgb, var(--fc) 80%, #000) 50%, #2a1c08 85%, transparent); clip-path: polygon(0 50%, 12% 20%, 22% 70%, 35% 10%, 48% 80%, 60% 20%, 72% 75%, 85% 15%, 100% 50%, 85% 60%, 72% 95%, 60% 45%, 48% 100%, 35% 40%, 22% 95%, 12% 50%); animation-name: fxcrack; }
+@keyframes fxcrack { from { transform: translate(-50%, -50%) scaleX(.1); opacity: 1; } 30% { transform: translate(-50%, -50%) scaleX(calc(1 * var(--k, 1))); opacity: 1; } to { transform: translate(-50%, -50%) scaleX(calc(1.1 * var(--k, 1))); opacity: 0; } }
+.fx-xslash { width: 70px; height: 70px; background: linear-gradient(45deg, transparent 46%, #fff 48%, var(--fc) 50%, #fff 52%, transparent 54%), linear-gradient(-45deg, transparent 46%, #fff 48%, var(--fc) 50%, #fff 52%, transparent 54%); filter: drop-shadow(0 0 6px var(--fc)); animation-name: fxclaws; }
+.fx-cloud { width: 80px; height: 60px; border-radius: 50%; background: radial-gradient(circle at 30% 50%, color-mix(in srgb, var(--fc) 70%, transparent) 0 25%, transparent 45%), radial-gradient(circle at 65% 40%, color-mix(in srgb, var(--fc) 60%, transparent) 0 28%, transparent 48%), radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--fc) 55%, transparent) 0 25%, transparent 45%); filter: blur(2px); }
+.fx-gust { width: 90px; height: 50px; border-radius: 50%; border-top: 4px solid #fff; border-bottom: 3px solid color-mix(in srgb, var(--fc) 60%, #fff); opacity: .9; animation-name: fxgust; }
+@keyframes fxgust { from { transform: translate(-90%, -50%) scaleX(.4) rotate(-8deg); opacity: 1; } to { transform: translate(-10%, -50%) scaleX(calc(1.4 * var(--k, 1))) rotate(4deg); opacity: 0; } }
+
+/* Électrik : éclair qui tombe du ciel ; Roche : rochers qui chutent */
+.fx-bolt { position: absolute; width: 26px; transform: translate(-50%, -100%); background: linear-gradient(#fff, var(--fc)); clip-path: polygon(55% 0, 20% 45%, 48% 45%, 25% 100%, 80% 38%, 52% 38%, 75% 0); filter: drop-shadow(0 0 8px var(--fc)) drop-shadow(0 0 3px #fff); animation: fxbolt .45s steps(1, end) forwards; pointer-events: none; }
+@keyframes fxbolt { 0% { opacity: 1; } 25% { opacity: .2; } 45% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.fx-fall { position: absolute; width: 20px; height: 18px; transform: translate(-50%, -50%); background: linear-gradient(135deg, #efe2b4, #7a6232); clip-path: polygon(20% 0, 85% 10%, 100% 60%, 60% 100%, 0 75%); animation: fxfall .42s cubic-bezier(.5,0,1,1) both; pointer-events: none; }
+@keyframes fxfall { from { transform: translate(-50%, calc(-50% + var(--h))) rotate(0); } to { transform: translate(-50%, -50%) rotate(200deg); } }
+
+/* Ultime : flash de couleur sur tout le terrain */
+.fx-ult { position: absolute; inset: 0; pointer-events: none; z-index: 6; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--fc) 45%, transparent), transparent 70%); animation: fxult .9s ease-out forwards; mix-blend-mode: screen; }
+@keyframes fxult { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+
 </style>
 <div id="app"></div>
 <div id="modal-root"></div>
@@ -5510,7 +5590,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${ults.length ? `<section><h3>Forme ultime · ★★★★★★ niveau 100</h3><p class="muted small">Dès le niveau ${Math.min(80, cap)}, éveille sa forme ultime. Méga : ${G.ULT_COST.mega.n} Méga-Cristal${G.ULT_COST.mega.n > 1 ? 'x' : ''} · Gigamax : ${G.ULT_COST.gmax.n} Particule${G.ULT_COST.gmax.n > 1 ? 's' : ''} Dynamax · ${fmt(G.ULT_COST.mega.gold)} ₽ (succès « Prêt pour l’éveil », Sanctuaire Ultime).</p>
         <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
       ${evoBonusHtml(m)}
-      <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
+      <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="row rune-presets-bar"><button class="btn small" data-rsave>💾 Sauvegarder ce set</button><button class="btn small" data-rload>📂 Sets sauvegardés (${(s.runePresets || []).length})</button></div><div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
       <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(cst[key])}</b>${critNote[key] ? `<small class="stat-note">${critNote[key]}</small>` : ''}</div>`).join('')}</div><p class="muted small">Valeurs en combat : rôle et passifs du Pokémon compris (les auras des autres membres de l’équipe s’y ajoutent en combat). En combat, les PV sont multipliés par ${String(B.HP_MULT).replace(".", ",")}.</p></section>
       ${(n => { const so = G.soulsOf(m.sid), mx = n >= G.DUPE_MAX; return `<section class="soul-sec"><h3>Éveil des Âmes · ${n}/${G.DUPE_MAX}</h3>
         <div class="dupe-line"><div class="dupe-bar">${G.DUPE_BONUS.map((v, i) => `<i class="${i < n ? 'on' : ''}" title="Palier ${i + 1} : +${v} %"></i>`).join('')}</div><b>${n ? '+' + G.DUPE_BONUS[n - 1] + ' % stats' : 'aucun bonus'}</b></div>
@@ -5554,6 +5634,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       if (r === true) { await evoAnim(m, before, f.kind); re(); } else toast(r === 'item' ? 'Objet ultime manquant (succès « Prêt pour l’éveil » ou Sanctuaire Ultime).' : r === 'gold' ? 'Pas assez de Pokédollars.' : 'Impossible pour le moment.');
     });
     app.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => runePicker(m, +b.dataset.slot, re));
+    app.querySelector('[data-rsave]').onclick = () => saveRunePreset(m, re);
+    app.querySelector('[data-rload]').onclick = () => runePresetsModal(m, re);
     const sb = app.querySelector('[data-soul]');
     if (sb) sb.onclick = () => { const r = G.useSoul(m); if (r === true) { toast(`Éveil palier ${G.dupesOf(m.sid)} : ${monName(m)} +${G.DUPE_BONUS[G.dupesOf(m.sid) - 1]} % de stats !`); re(); } else toast(r === 'gold' ? 'Pas assez de Pokédollars.' : r === 'soul' ? 'Aucune Âme : invoque un doublon de ce Pokémon.' : 'Éveil déjà maximal.'); };
     app.querySelector('[data-chart]').onclick = () => typeChartScreen(() => monDetail(uidv, back));
@@ -5620,6 +5702,46 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${fitRole ? fitBadge(r, fitRole) : ''}<div class="row">${actions}</div></div>`;
   }
   // Ensembles actifs sur un Pokémon.
+  // ---------- Sets de runes sauvegardés ----------
+  // Un set = les 6 runes d'un Pokémon, sous un nom. On peut le rééquiper ensuite sur n'importe quel Pokémon :
+  // les runes portées par d'autres leur sont reprises (avec confirmation).
+  const RUNE_PRESET_MAX = 40;
+  const presetRunes = p => p.runes.map(id => id && S().runes.find(r => r.id === id));
+  function presetSetsTxt(p) { const cnt = {}; for (const r of presetRunes(p)) if (r) cnt[r.set] = (cnt[r.set] || 0) + 1; return Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${esc(G.RUNE_SETS[k].n)} ×${n}`).join(' · ') || 'aucune rune'; }
+  async function saveRunePreset(m, re) {
+    const s = S(); s.runePresets = s.runePresets || [];
+    if (!m.runes.some(Boolean)) return toast('Aucune rune équipée sur ce Pokémon.');
+    if (s.runePresets.length >= RUNE_PRESET_MAX) return toast(`Maximum ${RUNE_PRESET_MAX} sets : supprimes-en un d’abord.`);
+    const def = `${monName(m)} · ${A.ROLES[A.roleOf(m.sid)].n}`;
+    const name = await modal(`<h3>Sauvegarder ce set de runes</h3><p class="muted small">Les 6 emplacements actuels de ${esc(monName(m))} sont enregistrés sous ce nom.</p>
+      <input id="rp-name" class="txt-in" maxlength="30" value="${esc(def)}"><div class="row end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" data-ok>Sauvegarder</button></div>`,
+      (bg, close) => { const i = bg.querySelector('#rp-name'); i.focus(); i.select(); bg.querySelector('[data-ok]').onclick = () => close(i.value.trim() || def); i.onkeydown = e => { if (e.key === 'Enter') close(i.value.trim() || def); }; });
+    if (!name) return;
+    s.runePresets.push({ id: 'rp' + Date.now().toString(36), name, runes: m.runes.slice(), sid: m.sid }); G.save();
+    toast(`Set « ${name} » sauvegardé.`); re();
+  }
+  function runePresetsModal(m, re) {
+    const s = S(), list = s.runePresets || [];
+    modal(`<div class="modal-head"><button class="btn ghost small" data-close>‹ Retour</button><h3>Sets de runes</h3></div>
+      ${list.length ? '' : '<p class="muted">Aucun set sauvegardé. Équipe des runes puis touche « 💾 Sauvegarder ce set ».</p>'}
+      <div class="preset-list">${list.map(p => { const rs = presetRunes(p), miss = rs.filter((r, i) => p.runes[i] && !r).length, others = [...new Set(rs.filter(r => r && r.on && r.on !== m.uid).map(r => r.on))].map(u => s.mons.find(x => x.uid === u)).filter(Boolean);
+        return `<div class="preset-card"><div class="preset-top"><b>${esc(p.name)}</b><span class="small muted">${presetSetsTxt(p)}</span></div>
+          <div class="preset-runes">${rs.map((r, i) => r ? `<span class="pr-r" style="--rr:${G.RUNE_RARITY[r.rar].color}" title="${esc(G.RUNE_SETS[r.set].n)} +${r.lv}">${ROMAN[i]}<small>+${r.lv}</small></span>` : `<span class="pr-r empty">${ROMAN[i]}</span>`).join('')}</div>
+          ${miss ? `<p class="small warn-txt">${miss} rune${miss > 1 ? 's' : ''} n’existe${miss > 1 ? 'nt' : ''} plus (vendue${miss > 1 ? 's' : ''} ou désintégrée${miss > 1 ? 's' : ''}).</p>` : ''}
+          ${others.length ? `<p class="small muted">Reprises à : ${others.map(o => esc(monName(o))).join(', ')}</p>` : ''}
+          <div class="row end"><button class="btn small ghost" data-pdel="${p.id}">Supprimer</button><button class="btn small" data-pupd="${p.id}" title="Remplacer par les runes actuelles de ${esc(monName(m))}">Mettre à jour</button><button class="btn small primary" data-puse="${p.id}">Équiper sur ${esc(monName(m))}</button></div></div>`; }).join('')}</div>
+      <div class="row end"><button class="btn ghost" data-close>Fermer</button></div>`, (bg, close) => {
+      bg.querySelectorAll('[data-puse]').forEach(b => b.onclick = async () => {
+        const p = list.find(x => x.id === b.dataset.puse), rs = presetRunes(p);
+        const others = [...new Set(rs.filter(r => r && r.on && r.on !== m.uid).map(r => r.on))].map(u => s.mons.find(x => x.uid === u)).filter(Boolean);
+        if (others.length && !await confirmBox(`Équiper « ${esc(p.name)} » sur <b>${esc(monName(m))}</b> ?<br><br>Ces Pokémon perdront les runes concernées : <b>${others.map(o => esc(monName(o))).join(', ')}</b>.`, 'Équiper')) return;
+        for (const r of rs) if (r) equip(m, r);
+        G.save(); close(); toast(`Set « ${p.name} » équipé.`); re();
+      });
+      bg.querySelectorAll('[data-pupd]').forEach(b => b.onclick = async () => { const p = list.find(x => x.id === b.dataset.pupd); if (!m.runes.some(Boolean)) return toast('Aucune rune équipée sur ce Pokémon.'); if (!await confirmBox(`Remplacer « ${esc(p.name)} » par les runes actuelles de ${esc(monName(m))} ?`, 'Mettre à jour')) return; p.runes = m.runes.slice(); G.save(); close(); toast('Set mis à jour.'); runePresetsModal(m, re); });
+      bg.querySelectorAll('[data-pdel]').forEach(b => b.onclick = async () => { const p = list.find(x => x.id === b.dataset.pdel); if (!await confirmBox(`Supprimer le set « ${esc(p.name)} » ? Les runes elles-mêmes ne sont pas touchées.`, 'Supprimer')) return; s.runePresets = list.filter(x => x !== p); G.save(); close(); runePresetsModal(m, re); });
+    });
+  }
   function runeSetsHtml(m) {
     const s = S(), cnt = {};
     for (const id of m.runes || []) { const r = id && s.runes.find(x => x.id === id); if (r) cnt[r.set] = (cnt[r.set] || 0) + 1; }
@@ -5980,6 +6102,35 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const n = spawn('fx-line', a.x, a.y, color, 650); n.style.width = len + 'px'; n.style.transform = `rotate(${ang}deg)`;
       anim(n, [{ clipPath: 'inset(0 100% 0 0)', opacity: 1 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: 0.45 }, { clipPath: 'inset(0 0 0 0)', opacity: 0 }], 650);
     }
+    // Effets propres à chaque type : forme du projectile, éclats à l'impact et effet spécial (explosion, éclair, gel…).
+    const TFX = {
+      fire: { proj: 'flame', p: ['ember', 10], x: 'blast' }, water: { proj: 'bubble', p: ['drop', 9], x: 'splash' }, electric: { bolt: true, p: ['spark', 9], x: 'flash' },
+      ice: { proj: 'shard', p: ['crystal', 8], x: 'frost' }, grass: { proj: 'leaf', p: ['leaf', 10] }, psychic: { proj: 'orb', x: 'rings' },
+      ghost: { proj: 'wisp', p: ['wisp', 7], x: 'haunt' }, dark: { proj: 'orb', x: 'claws', p: ['shadow', 6] }, dragon: { proj: 'flame', p: ['scale', 8], x: 'spiral' },
+      fairy: { proj: 'star', p: ['star', 10], x: 'twinkle' }, fighting: { proj: 'orb', p: ['spark', 6], x: 'pow' }, rock: { fall: 'rock', p: ['rock', 6], x: 'dust' },
+      ground: { p: ['dust', 9], x: 'crack' }, steel: { proj: 'shard', p: ['spark', 9], x: 'xslash' }, poison: { proj: 'bubble', p: ['drop', 8], x: 'cloud' },
+      bug: { proj: 'orb', p: ['dot', 12] }, flying: { proj: 'leaf', x: 'gust', p: ['feather', 6] }, normal: { proj: 'orb', p: ['spark', 6], x: 'ring' },
+    };
+    const tkey = t => (typeById[t] || {}).key || 'normal';
+    function typeFx(t, key, big) {
+      const e = el(t); if (!e) return; const c = center(e), col = TYPE_COLORS[key] || '#fff', d = TFX[key] || TFX.normal, k = big ? 1.35 : 1;
+      if (d.x) { const n = spawn('fx-x fx-' + d.x, c.x, c.y, col, 800); n.style.animationDuration = 800 / speed + 'ms'; n.style.setProperty('--k', k); }
+      if (d.p) for (let i = 0; i < d.p[1] + (big ? 4 : 0); i++) {
+        const a = Math.random() * Math.PI * 2, r = (22 + Math.random() * 38) * k, n = spawn('fx-p fx-p-' + d.p[0], c.x, c.y, col, 900);
+        n.style.setProperty('--dx', Math.cos(a) * r + 'px'); n.style.setProperty('--dy', (d.p[0] === 'wisp' || d.p[0] === 'ember' ? -Math.abs(Math.sin(a) * r) - 18 : Math.sin(a) * r) + 'px');
+        n.style.setProperty('--rot', (Math.random() * 540 - 270) + 'deg'); n.style.animationDuration = (650 + Math.random() * 300) / speed + 'ms'; n.style.animationDelay = Math.random() * 90 / speed + 'ms';
+      }
+    }
+    // Éclair (Électrik) ou chute de rochers (Roche) : l'attaque tombe du ciel sur la cible.
+    async function skyStrike(t, key) {
+      const e = el(t); if (!e) return; const c = center(e), col = TYPE_COLORS[key];
+      if (key === 'electric') { const n = spawn('fx-bolt', c.x, c.y, col, 450); n.style.height = (c.y + 20) + 'px'; n.style.animationDuration = 450 / speed + 'ms'; await wait(160); }
+      else { for (let i = 0; i < 3; i++) { const n = spawn('fx-fall', c.x + (i - 1) * 18, c.y, col, 520); n.style.setProperty('--h', -(c.y + 30) + 'px'); n.style.animationDuration = 420 / speed + 'ms'; n.style.animationDelay = i * 70 / speed + 'ms'; } await wait(380); }
+    }
+    function ultFlash(key, side) {
+      const f = document.createElement('i'); f.className = 'fx-ult'; f.style.setProperty('--fc', TYPE_COLORS[key] || '#fff'); f.style.animationDuration = 900 / speed + 'ms'; field.appendChild(f); setTimeout(() => f.remove(), 950 / speed);
+      anim(field, [{ transform: 'none' }, { transform: 'translate(3px,-2px)' }, { transform: 'translate(-3px,2px)' }, { transform: 'translate(2px,1px)' }, { transform: 'none' }], 420);
+    }
     async function projectile(a, b, color, kind) {
       const n = spawn('fx-proj ' + kind, a.x, a.y, color, 520);
       await anim(n, [{ transform: 'translate(-50%,-50%) scale(.6)' }, { transform: `translate(calc(-50% + ${b.x - a.x}px), calc(-50% + ${b.y - a.y}px)) scale(1.15)` }], 380, { easing: 'cubic-bezier(.4,0,.7,1)', fill: 'forwards' });
@@ -5992,18 +6143,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     }
     async function animateUse(u, ev) {
       const ue = el(u); if (!ue) return wait(400);
-      const color = typeColor(ev.t), ts = (ev.targets || []).map(id => byUid[id]).filter(t => t && el(t));
+      const color = typeColor(ev.t), ts = (ev.targets || []).map(id => byUid[id]).filter(t => t && el(t)), key = tkey(ev.t), td = TFX[key] || TFX.normal;
+      const offensive = ev.fx === 'hit' || ev.fx === 'aoe';
+      if (ev.skill === 2 && offensive) { ultFlash(key, u.side); await wait(220); } // ultime : éclair de couleur et secousse
       ue.classList.add('acting');
       const a = center(ue);
       for (const t of ts) if (t !== u) aimLine(a, center(el(t)), color);
       if (ev.fx === 'hit' && ev.c === 2 && ts[0]) { // attaque physique : élan jusqu'à la cible
         const b = center(el(ts[0]));
         const go = anim(ue, [{ transform: 'none' }, { transform: `translate(${(b.x - a.x) * 0.55}px, ${(b.y - a.y) * 0.55}px) scale(1.12)`, offset: 0.5 }, { transform: 'none' }], 560, { easing: 'ease-in-out' });
-        await wait(280); impact(ts[0], color, 'slash'); await go;
+        await wait(280); impact(ts[0], color, 'slash'); typeFx(ts[0], key, ev.skill === 2); await go;
       } else if (ev.fx === 'hit' || ev.fx === 'aoe' || ev.fx === 'status' || ev.fx === 'debuff') { // attaque à distance : projectiles
         anim(ue, [{ transform: 'none' }, { transform: `scale(1.12) translateY(${u.side === 'A' ? -6 : 6}px)` }, { transform: 'none' }], 380);
         spawn('fx-charge', a.x, a.y, color, 420); await wait(160);
-        await Promise.all(ts.map((t, k) => wait(k * 70).then(() => projectile(a, center(el(t)), color, ev.fx === 'status' || ev.fx === 'debuff' ? 'dark' : '')).then(() => impact(t, color, ev.fx === 'aoe' ? 'big' : ''))));
+        const shot = t => offensive && (td.bolt || td.fall) ? skyStrike(t, key) : offensive && !td.proj ? wait(200) : projectile(a, center(el(t)), color, ev.fx === 'status' || ev.fx === 'debuff' ? 'dark' : 't-' + (td.proj || 'orb'));
+        await Promise.all(ts.map((t, k) => wait(k * 70).then(() => shot(t)).then(() => { impact(t, color, ev.fx === 'aoe' ? 'big' : ''); if (offensive) typeFx(t, key, ev.skill === 2); })));
       } else if (ev.fx === 'heal' || ev.fx === 'buff') { // soins et bonus : énergie vers les alliés, puis aura
         const col = ev.fx === 'heal' ? '#3ee08f' : '#7dd3ff';
         spawn('fx-charge', a.x, a.y, col, 420); await wait(140);
