@@ -1818,6 +1818,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   };
   const pickSalt = (arr, s, salt, n) => { const ok = arr.filter(r => !r.cond || r.cond(s)); const base = ok.length ? ok : arr; return base[hash(salt, n) % base.length]; };
   const HEAL_OFF_K = 3; // soins selon l'Attaque / Atq. Spé : % de la stat (calibré sur les PV moyens d'une cible)
+  // Katagami : son ultime mise sur des dégâts critiques énormes (il a déjà beaucoup de critique par son passif).
+  const SPECIES_EDIT = { 798: { 2: { critUp: null, pierce: null, exec: null, critDmg: 60 } } };
   const TANK_COUNTER_UP = 50; // % de puissance en plus quand la compétence I d'un tank sert de riposte (ensemble Riposte)
   const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
@@ -1942,6 +1944,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         const [f, v] = free[hash(sid, k.slot, 77) % free.length]; k[f] = v;
       }
     }
+    // Retouches propres à une espèce (après les règles générales).
+    const own = SPECIES_EDIT[sid];
+    if (own) for (const [i, e] of Object.entries(own)) { const k = kit[i]; if (!k) continue; for (const [f, v] of Object.entries(e)) { if (v === null) delete k[f]; else k[f] = v; } }
     // Tanks et ensemble Riposte : la compétence I sert de contre-attaque. Elle frappe avec la meilleure stat du tank
     // (Défense / Déf. Spé ou PV) quand elle dépasse son offensive, et gagne +50 % de puissance en riposte.
     if (role === 'tank') {
@@ -2021,6 +2026,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (k.cleanse && k.target === 'allies') parts.push('Retire statuts et malus de l’équipe.');
     if (k.cdReduce) parts.push(`Réduit de ${k.cdReduce} tour la recharge des compétences des alliés.`);
     if (k.apBoost) parts.push(`Augmente de ${k.apBoost / 10} % la jauge d’action des alliés.`);
+    if (k.critDmg) parts.push(`+${k.critDmg} % de dégâts critiques.`);
     if (k.counterUp) parts.push(`Riposte : +${k.counterUp} % de puissance quand elle sert de contre-attaque (ensemble de runes Riposte).`);
     return parts.join(' ');
   }
@@ -2320,7 +2326,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     dmg *= tf * (sk.stab ? 1.5 : 1) * (0.9 + rand() * 0.1) * (mult || 1);
     const critRate = ((u.st.crit || 15) * (sk.crit ? 2 : 1) + (sk.critUp || 0) + (u.passives.crit || 0)) / 100;
     const crit = !t.passives.bulwark && rand() < critRate;
-    if (crit) dmg *= ((u.st.critd || 150) + 2 * (u.passives.crit || 0)) / 100;
+    if (crit) dmg *= ((u.st.critd || 150) + 2 * (u.passives.crit || 0) + (sk.critDmg || 0)) / 100;
     if (t.role === 'tank') dmg *= 0.85;
     if (t.passives.bulwark) dmg *= 1 - t.passives.bulwark / 100;
     if (u.passives.execute && t.hp < t.maxHp / 2) dmg *= 1 + u.passives.execute / 100;
