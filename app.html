@@ -1706,7 +1706,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     250: ['Phénix Arc-en-Ciel', [F('rebirth', 60), F('regen', 4)]], 377: ['Corps de Roche', [F('bulwark', 20), F('thorns', 20)]],
     378: ['Corps de Glace', [F('bulwark', 18), F('statusAura', 15, { ail: 3 })]], 379: ['Corps d’Acier', [F('bulwark', 18), F('pure', 1)]],
     380: ['Voile Éon', [F('teamDr', 10), F('regen', 3)]], 381: ['Lueur Éon', [F('dmgUp', 18), F('speed', 10)]],
-    382: ['Mer Primaire', [F('typeUp', 40, { t: 11 }), F('dmgUp', 15), F('regen', 3)]], 383: ['Terre Finale', [F('typeUp', 40, { t: 5 }), F('bulwark', 15), F('thorns', 25), F('hp', 15), F('shieldStart', 10)]],
+    382: ['Mer Primaire', [F('typeUp', 40, { t: 11 }), F('dmgUp', 15), F('regen', 3)]], 383: ['Terre Finale', [F('typeUp', 40, { t: 5 }), F('bulwark', 20), F('thorns', 30), F('hp', 15), F('shieldStart', 12), F('teamDr', 10)]],
     384: ['Souffle Delta', [F('dmgUp', 20), F('speed', 20), F('firstStrike', 40), F('multitype', 25)]], 480: ['Lac Savoir', [F('cleanseTurn', 1), F('aura', 8)]],
     481: ['Lac Émotion', [F('regen', 3), F('teamDr', 8)]], 482: ['Lac Volonté', [F('firstStrike', 25), F('crit', 10)]],
     483: ['Rugissement du Temps', [F('timeLock', 150), F('speed', 15), F('dmgUp', 15)]], 484: ['Fracture Spatiale', [F('dmgUp', 22), F('crit', 15), F('infiltrate', 15)]],
@@ -1715,7 +1715,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     638: ['Justicier d’Acier', [F('bulwark', 15), F('aura', 8)]], 639: ['Justicier de Pierre', [F('hp', 15), F('dmgUp', 15)]],
     640: ['Justicier des Bois', [F('speed', 15), F('crit', 15)]], 641: ['Farceur', [F('doubleTurn', 20), F('dmgUp', 10)]],
     642: ['Foudre Céleste', [F('statusAura', 25, { ail: 1 }), F('dmgUp', 12)]], 645: ['Intimidation Tellurique', [F('intimidate', 1, { stat: 'atk' }), F('dmgUp', 15)]],
-    643: ['Turbobrasier', [F('infiltrate', 35), F('dmgUp', 20), F('typeUp', 30, { t: 10 }), F('statusAura', 20, { ail: 4 })]], 644: ['Téra-Voltage', [F('infiltrate', 35), F('dmgUp', 20), F('typeUp', 30, { t: 13 }), F('statusAura', 20, { ail: 1 })]],
+    643: ['Turbobrasier', [F('infiltrate', 35), F('dmgUp', 20), F('typeUp', 30, { t: 10 }), F('statusAura', 20, { ail: 4 })]], 644: ['Téra-Voltage', [F('infiltrate', 35), F('dmgUp', 25), F('typeUp', 30, { t: 13 }), F('statusAura', 20, { ail: 1 }), F('doubleTurn', 15)]],
     646: ['Glace Absolue', [F('statusAura', 20, { ail: 3 }), F('dmgUp', 20)]], 716: ['Aura Féerique', [F('typeUp', 33, { t: 18 }), F('regen', 4), F('aura', 10)]],
     717: ['Aura Ténébreuse', [F('typeUp', 33, { t: 17 }), F('lifelink', 25), F('dmgUp', 10)]], 718: ['Rassemblement', [F('rebirth', 50), F('hp', 20), F('bulwark', 10)]],
     773: ['Système Alpha', [F('multitype', 30), F('speed', 10)]], 785: ['Champ Électrique', [F('typeUp', 25, { t: 13 }), F('speed', 10)]],
@@ -1954,7 +1954,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       { t: 14, target: 'enemy', pow: 240, cd: 4, n: 'Psyko-Fracas', hitDef: true, crit: true, pierce: 20 }],
     384: [{ t: 16, target: 'enemy', pow: 75, cd: 0, n: 'Griffe Céleste', ramp: 15 },
       { t: 3, target: 'all', pow: 98, cd: 3, n: 'Ouragan Draconique', flinch: 25, selfAp: 150 },
-      { t: 3, target: 'enemy', pow: 270, cd: 4, n: 'Draco Ascension', crit: true, stat: [[2, -1], [4, -1]], statChance: 100, statSelf: true }],
+      { t: 3, target: 'enemy', pow: 270, cd: 4, n: 'Draco Ascension', crit: true, onKill: true, stat: [[2, -1]], statChance: 100, statSelf: true }],
     382: [{ t: 11, target: 'enemy', pow: 72, cd: 0, n: 'Pluie Primaire', chain: 1, regen: 4, regenTo: 'team' },
       { t: 11, target: 'all', pow: 105, cd: 3, n: 'Onde Originelle', apPush: 100 },
       { t: 11, target: 'all', pow: 160, cd: 4, n: 'Giclédo Primordial', hpScale: true }],
@@ -1965,13 +1965,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       { t: 8, target: 'all', pow: 72, cd: 3, n: 'Monde Distorsion', apPush: 200, taunt: 2, dispel: true },
       { t: 8, target: 'enemy', pow: 210, cd: 4, n: 'Revenant', pierce: 35, shatter: 100, shieldSelf: 20 }],
     644: [{ t: 13, target: 'enemy', pow: 78, cd: 0, n: 'Charge Foudre', chain: 1, ail: 1, ailChance: 25 },
-      { t: 13, target: 'enemy', pow: 145, cd: 3, n: 'Éclair Croix', allyBoost: [643, 50], onKill: true },
-      { t: 16, target: 'enemy', pow: 245, cd: 4, n: 'Draco-Foudre Noire', rage: 40, ail: 1, ailChance: 30 }],
+      { t: 13, target: 'enemy', pow: 140, cd: 3, n: 'Éclair Croix', allyBoost: [643, 50], chain: 2, ail: 1, ailChance: 30 },
+      { t: 16, target: 'enemy', pow: 245, cd: 4, n: 'Draco-Foudre Noire', rage: 40, pierce: 30, onKill: true }],
     643: [{ t: 10, target: 'enemy', pow: 78, cd: 0, n: 'Flamme Bleue', ail: 4, ailChance: 50 },
       { t: 10, target: 'all', pow: 100, cd: 3, n: 'Flamme Croix', allyBoost: [644, 50], ail: 4, ailChance: 30 },
       { t: 10, target: 'enemy', pow: 245, cd: 4, n: 'Flamme Bleue Ultime', vsAil: [4, 40], ail: 4, ailChance: 50 }],
   });
-  const POWER_BONUS = { 890: 1.15, 150: 1.12, 384: 1.2, 382: 1.12, 383: 1.12, 487: 1.12, 644: 1.12, 643: 1.12 }; // les Pokémon « ultimes » visent plus haut que leur rareté
+  const POWER_BONUS = Object.assign({ 890: 1.15, 150: 1.12, 384: 1.32, 382: 1.12, 383: 1.3, 487: 1.12, 644: 1.25, 643: 1.22 }, globalThis.PB || {}); // les Pokémon « ultimes » visent plus haut que leur rareté
   const TANK_COUNTER_UP = 50; // % de puissance en plus quand la compétence I d'un tank sert de riposte (ensemble Riposte)
   const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
@@ -2324,7 +2324,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     '150:mega:0': { 0: { t: 2, target: 'enemy', relPow: 1.1, cd: 0, stab: true, recipe: 'own0', n: 'Poing Mental', shatter: 40, replace: true },
       1: { t: 2, target: 'enemy', relPow: 1.45, cd: 3, stab: true, recipe: 'own1', n: 'Close Combat Génétique', onKill: true, stat: [[2, -1]], statChance: 100, statSelf: true, replace: true },
       2: { t: 14, target: 'enemy', relPow: 1.05, cd: 4, stab: true, recipe: 'own2', n: 'Psyko-Fracas X', crit: true, rage: 50, pierce: 25, replace: true } },
-    '384:mega:0': { 2: { relPow: 1.12, onKill: true, n: 'Draco Ascension Méga' } },
+    '384:mega:0': { 2: { relPow: 1.12, n: 'Draco Ascension Méga', pierce: 25 } },
     '150:mega:1': { 1: { relPow: 1.1, n: 'Onde Psychique Y' }, 2: { relPow: 1.12, n: 'Psyko-Fracas Y', mark: [20, 2] } },
     // Méga-Dracaufeu Y : I Feu monocible, II Feu sur toute l'équipe adverse, III Dragon monocible très puissante.
     '6:mega:1': { 1: { t: 10, target: 'all', pow: 92, cd: 3, stab: true, recipe: 'sweep', n: 'Canicule Solaire', ail: 4, ailChance: 30, replace: true },
@@ -3880,8 +3880,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // sommet ; TOWER_FIX corrige chaque étage selon sa composition (soigneurs, thème…), réglé par simulation
   // (tools/arena-tower.js) pour qu'aucun étage ne fasse mur par rapport à ses voisins.
   // Étages 18, 31 et 36 allégés (×0,7) : Méga-Tyranocif, tank offensif à renvoi de dégâts, y pèse plus que ses stats.
-  const TOWER_CURVE = Object.assign([27.94, 43.28], globalThis.TOWER_CURVE || []);
-  const TOWER_FIX = globalThis.NO_TOWER_FIX ? [] : [1.227,1.164,1.169,1.355,1.304,1.103,1.393,1.097,1.385,1.277,1.264,1.307,1.331,1.436,1.382,1.449,1.208,1.13,1.448,1.046,0.628,1.055,0.819,0.897,0.748,1.188,1.049,0.981,0.74,0.975,1.267,1.512,1.518,1.569,1.467,0.855,0.964,0.863,1.222,1.612,0.967,0.75,1.633,1.131,1.088,1.261,1.266,0.983,0.832,1.144,0.876,1.09,1.095,1.069,1.536,0.921,1.18,0.878,1.003,1.231,0.877,0.763,0.694,0.717,0.642,0.636,1.01,0.66,0.663,1.009,0.783,1.093,1.18,0.749,0.856,0.619,0.697,0.808,0.835,0.686,0.972,0.871,1.053,0.866,0.961,0.665,1.512,0.775,1.162,1.347,0.533,0.645,1.307,1.106,0.618,1.325,0.669,0.672,0.685,0.739];
+  const TOWER_CURVE = Object.assign([30.02, 46.51], globalThis.TOWER_CURVE || []);
+  const TOWER_FIX = globalThis.NO_TOWER_FIX ? [] : [1.246,1.182,1.121,1.356,1.181,1.057,1.374,1.052,1.387,1.242,1.265,1.346,1.314,1.418,1.424,1.43,1.142,1.198,1.429,1.078,0.704,1.151,0.808,0.911,0.738,1.155,1.035,1.01,0.773,0.949,1.251,1.513,1.542,1.505,1.427,0.894,0.937,0.749,1.296,1.59,0.901,0.751,1.611,1.181,1.089,1.192,1.232,0.903,0.809,1.021,0.902,1.123,1.006,1.149,1.515,0.935,1.233,0.866,0.975,1.286,0.794,0.797,0.704,0.717,0.671,0.655,0.996,0.67,0.654,1.054,0.795,0.976,1.343,0.761,0.907,0.61,0.718,0.774,0.885,0.77,1.091,0.871,1.1,0.83,1.019,0.676,1.491,0.798,1.114,1.427,0.534,0.724,1.183,1.06,0.683,1.116,0.709,0.635,0.695,0.698];
   const towerTarget = n => 1000 * TOWER_CURVE[0] * Math.pow(TOWER_CURVE[1] / TOWER_CURVE[0], (n - 1) / (TOWER_FLOORS - 1));
   // Runes plus fortes en haute qualité (tirages par qualité) : le haut de la Tour est relevé en douceur pour rester le
   // défi ultime (aucun changement jusqu'à l'étage 30, puis jusqu'à +15 % à partir de l'étage 70).
