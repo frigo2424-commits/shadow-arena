@@ -1415,7 +1415,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const RARITY_ORDER = ['N', 'R', 'E', 'L', 'F', 'M'];
 
   // ---------- Familles d'évolution ----------
-  const rootOf = id => { let s = sp(id), g = 0; while (s && s.from && sp(s.from) && g++ < 5) s = sp(s.from); return s ? s.id : id; };
+  const rootOf = id => { let s = sp(id), g = 0; while (s && s.from && sp(s.from) && g++ < 5) s = sp(s.from); return s ? (s.altOf ? rootOf(s.altOf) : s.id) : id; };
   const family = {};
   for (const s of Object.values(D.species)) (family[rootOf(s.id)] = family[rootOf(s.id)] || []).push(s.id);
   const famMax = r => Math.max(...family[r].map(id => bst(sp(id))));
@@ -1542,7 +1542,77 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const REGIONS = ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unys', 'Kalos', 'Alola', 'Galar', 'Paldea'];
   const genRoots = g => Object.keys(family).map(Number).filter(r => sp(r).g === g);
 
-  root.ArenaData = { rarOf, D, sp, bst, RARITIES, RARITY_ORDER, RARITY, POOL, levelCap, starsOf, formOf, ultimatesOf, evolutionsOf, remaining, GMAX, rootOf, family, stages, skillsOf: null, AILMENTS, REGIONS, genRoots, ROLES, ROLE_ORDER, roleOf };
+  // ---------- Formes régionales et alternatives ----------
+  // Chaque forme devient une espèce à part (id 50000+), non invocable : mêmes attaques apprises que la forme normale,
+  // mais ses propres types, stats, rôle, compétences et (Légendaires) passif. Un Pokémon peut changer de forme à partir
+  // d'un niveau (lvl), contre des Pokédollars ; une forme régionale suit ses évolutions (Caninos de Hisui → Arcanin de Hisui).
+  // [espèce, clé, nom, id d'image PokeAPI, types, stats PV/Atq/Déf/AtqS/DéfS/Vit, rôle imposé (facultatif)]
+  const T = { normal: 1, combat: 2, vol: 3, poison: 4, sol: 5, roche: 6, insecte: 7, spectre: 8, acier: 9, feu: 10, eau: 11, plante: 12, elec: 13, psy: 14, glace: 15, dragon: 16, tenebres: 17, fee: 18 };
+  const ALT_DATA = [
+    // Alola
+    [19, 'alola', 'Rattata d’Alola', 10091, ['tenebres', 'normal'], [30, 56, 35, 25, 35, 72]], [20, 'alola', 'Rattatac d’Alola', 10092, ['tenebres', 'normal'], [75, 71, 70, 40, 80, 77]],
+    [26, 'alola', 'Raichu d’Alola', 10100, ['elec', 'psy'], [60, 85, 50, 95, 85, 110]],
+    [27, 'alola', 'Sabelette d’Alola', 10101, ['glace', 'acier'], [50, 75, 90, 10, 35, 40]], [28, 'alola', 'Sablaireau d’Alola', 10102, ['glace', 'acier'], [75, 100, 120, 25, 65, 65]],
+    [37, 'alola', 'Goupix d’Alola', 10103, ['glace'], [38, 41, 40, 50, 65, 65]], [38, 'alola', 'Feunard d’Alola', 10104, ['glace', 'fee'], [73, 67, 75, 81, 100, 109]],
+    [50, 'alola', 'Taupiqueur d’Alola', 10105, ['sol', 'acier'], [10, 55, 30, 35, 45, 90]], [51, 'alola', 'Triopikeur d’Alola', 10106, ['sol', 'acier'], [35, 100, 60, 50, 70, 110]],
+    [52, 'alola', 'Miaouss d’Alola', 10107, ['tenebres'], [40, 35, 35, 50, 40, 90]], [53, 'alola', 'Persian d’Alola', 10108, ['tenebres'], [65, 60, 60, 75, 65, 115]],
+    [74, 'alola', 'Racaillou d’Alola', 10109, ['roche', 'elec'], [40, 80, 100, 30, 30, 20]], [75, 'alola', 'Gravalanch d’Alola', 10110, ['roche', 'elec'], [55, 95, 115, 45, 45, 35]], [76, 'alola', 'Grolem d’Alola', 10111, ['roche', 'elec'], [80, 120, 130, 55, 65, 45]],
+    [88, 'alola', 'Tadmorv d’Alola', 10112, ['poison', 'tenebres'], [80, 80, 50, 40, 50, 25]], [89, 'alola', 'Grotadmorv d’Alola', 10113, ['poison', 'tenebres'], [105, 105, 75, 65, 100, 50]],
+    [103, 'alola', 'Noadkoko d’Alola', 10114, ['plante', 'dragon'], [95, 105, 85, 125, 75, 45]], [105, 'alola', 'Ossatueur d’Alola', 10115, ['feu', 'spectre'], [60, 80, 110, 50, 80, 45]],
+    // Galar
+    [77, 'galar', 'Ponyta de Galar', 10162, ['psy'], [50, 85, 55, 65, 65, 90]], [78, 'galar', 'Galopa de Galar', 10163, ['psy', 'fee'], [65, 100, 70, 80, 80, 105]],
+    [79, 'galar', 'Ramoloss de Galar', 10164, ['psy'], [90, 65, 65, 40, 40, 15]], [80, 'galar', 'Flagadoss de Galar', 10165, ['poison', 'psy'], [95, 100, 95, 100, 70, 30]], [199, 'galar', 'Roigada de Galar', 10172, ['poison', 'psy'], [95, 65, 80, 110, 110, 30]],
+    [110, 'galar', 'Smogogo de Galar', 10167, ['poison', 'fee'], [65, 90, 120, 85, 70, 60]], [222, 'galar', 'Corayon de Galar', 10173, ['spectre'], [60, 55, 100, 65, 100, 30]],
+    [618, 'galar', 'Limonde de Galar', 10180, ['sol', 'acier'], [109, 81, 99, 66, 84, 32]], [555, 'galar', 'Darumacho de Galar', 10177, ['glace'], [105, 140, 55, 30, 55, 95]],
+    [144, 'galar', 'Artikodin de Galar', 10169, ['psy', 'vol'], [90, 85, 85, 125, 100, 95]], [145, 'galar', 'Électhor de Galar', 10170, ['combat', 'vol'], [90, 125, 90, 85, 90, 100]],
+    [146, 'galar', 'Sulfura de Galar', 10171, ['tenebres', 'vol'], [90, 85, 90, 100, 125, 90]],
+    // Hisui
+    [58, 'hisui', 'Caninos de Hisui', 10229, ['feu', 'roche'], [60, 75, 45, 65, 50, 55]], [59, 'hisui', 'Arcanin de Hisui', 10230, ['feu', 'roche'], [95, 115, 80, 95, 80, 90]],
+    [100, 'hisui', 'Voltorbe de Hisui', 10231, ['elec', 'plante'], [40, 30, 50, 55, 55, 100]], [101, 'hisui', 'Électrode de Hisui', 10232, ['elec', 'plante'], [60, 50, 70, 80, 80, 150]],
+    [157, 'hisui', 'Typhlosion de Hisui', 10233, ['feu', 'spectre'], [73, 84, 78, 119, 85, 95]], [211, 'hisui', 'Qwilfish de Hisui', 10234, ['tenebres', 'poison'], [65, 95, 85, 55, 55, 85]],
+    [215, 'hisui', 'Farfuret de Hisui', 10235, ['combat', 'poison'], [55, 95, 55, 35, 75, 115]], [503, 'hisui', 'Clamiral de Hisui', 10236, ['eau', 'tenebres'], [90, 108, 80, 100, 65, 85]],
+    [549, 'hisui', 'Fragilady de Hisui', 10237, ['plante', 'combat'], [70, 105, 75, 50, 75, 105]], [570, 'hisui', 'Zorua de Hisui', 10238, ['normal', 'spectre'], [35, 60, 40, 85, 40, 70]],
+    [571, 'hisui', 'Zoroark de Hisui', 10239, ['normal', 'spectre'], [55, 100, 60, 125, 60, 110]], [628, 'hisui', 'Gueriaigle de Hisui', 10240, ['psy', 'vol'], [110, 83, 70, 112, 70, 65]],
+    [705, 'hisui', 'Colimucus de Hisui', 10241, ['acier', 'dragon'], [58, 75, 83, 83, 113, 40]], [706, 'hisui', 'Muplodocus de Hisui', 10242, ['acier', 'dragon'], [80, 100, 100, 110, 150, 60]],
+    [713, 'hisui', 'Séracrawl de Hisui', 10243, ['glace', 'roche'], [95, 127, 184, 34, 36, 38]], [724, 'hisui', 'Archéduc de Hisui', 10244, ['plante', 'combat'], [88, 112, 80, 95, 95, 60]],
+    // Formes de Légendaires et Fabuleux
+    [386, 'attaque', 'Deoxys (Forme Attaque)', 10001, ['psy'], [50, 180, 20, 180, 20, 150], 'dps'], [386, 'defense', 'Deoxys (Forme Défense)', 10002, ['psy'], [50, 70, 160, 70, 160, 90], 'tank'],
+    [386, 'vitesse', 'Deoxys (Forme Vitesse)', 10003, ['psy'], [50, 95, 90, 95, 90, 180], 'ctrl'],
+    [487, 'originel', 'Giratina (Forme Originelle)', 10007, ['spectre', 'dragon'], [150, 120, 100, 120, 100, 90], 'dps'], [492, 'celeste', 'Shaymin (Forme Céleste)', 10006, ['plante', 'vol'], [100, 103, 75, 120, 75, 127], 'dps'],
+    [483, 'originel', 'Dialga (Forme Originelle)', 10245, ['acier', 'dragon'], [100, 100, 120, 150, 120, 90]], [484, 'originel', 'Palkia (Forme Originelle)', 10246, ['eau', 'dragon'], [90, 100, 100, 150, 120, 120]],
+    [641, 'totem', 'Boréas (Forme Totémique)', 10019, ['vol'], [79, 100, 80, 110, 90, 121]], [642, 'totem', 'Fulguris (Forme Totémique)', 10020, ['elec', 'vol'], [79, 105, 70, 145, 80, 101]],
+    [645, 'totem', 'Démétéros (Forme Totémique)', 10021, ['sol', 'vol'], [89, 145, 90, 105, 80, 91]], [905, 'totem', 'Amovénus (Forme Totémique)', 10249, ['fee', 'vol'], [74, 115, 110, 135, 100, 46]],
+    [646, 'noir', 'Kyurem Noir', 10022, ['dragon', 'glace'], [125, 170, 100, 120, 90, 95], 'dps'], [646, 'blanc', 'Kyurem Blanc', 10023, ['dragon', 'glace'], [125, 120, 90, 170, 100, 95], 'dps'],
+    [648, 'pirouette', 'Meloetta (Forme Danse)', 10018, ['normal', 'combat'], [100, 128, 90, 77, 77, 128], 'dps'], [720, 'dechaine', 'Hoopa Déchaîné', 10086, ['psy', 'tenebres'], [80, 160, 60, 170, 130, 80], 'dps'],
+    [718, 'parfait', 'Zygarde Parfait', 10120, ['dragon', 'sol'], [216, 100, 121, 91, 95, 85], 'tank'],
+    [800, 'criniere', 'Necrozma Crinière du Couchant', 10155, ['psy', 'acier'], [97, 157, 127, 113, 109, 77], 'dps'], [800, 'ailes', 'Necrozma Ailes de l’Aurore', 10156, ['psy', 'spectre'], [97, 113, 109, 157, 127, 77], 'dps'],
+    [888, 'couronne', 'Zacian Épée Suprême', 10188, ['fee', 'acier'], [92, 150, 115, 80, 115, 148], 'dps'], [889, 'couronne', 'Zamazenta Bouclier Suprême', 10189, ['combat', 'acier'], [92, 120, 140, 80, 140, 128], 'tank'],
+    [898, 'froid', 'Sylveroy, Cavalier du Froid', 10193, ['psy', 'glace'], [100, 165, 150, 85, 130, 50], 'dps'], [898, 'effroi', 'Sylveroy, Cavalier d’Effroi', 10194, ['psy', 'spectre'], [100, 85, 80, 165, 100, 150], 'dps'],
+    [479, 'chaleur', 'Motisma Chaleur', 10008, ['elec', 'feu'], [50, 65, 107, 105, 107, 86]], [479, 'lavage', 'Motisma Lavage', 10009, ['elec', 'eau'], [50, 65, 107, 105, 107, 86]],
+    [479, 'froid', 'Motisma Froid', 10010, ['elec', 'glace'], [50, 65, 107, 105, 107, 86]], [479, 'helice', 'Motisma Hélice', 10011, ['elec', 'vol'], [50, 65, 107, 105, 107, 86]],
+    [479, 'tonte', 'Motisma Tonte', 10012, ['elec', 'plante'], [50, 65, 107, 105, 107, 86]],
+    [1017, 'fontaine', 'Ogerpon Masque du Puits', 10273, ['plante', 'eau'], [80, 120, 84, 60, 96, 110]], [1017, 'fourneau', 'Ogerpon Masque du Fourneau', 10274, ['plante', 'feu'], [80, 120, 84, 60, 96, 110]],
+    [1017, 'pierre', 'Ogerpon Masque de la Pierre', 10275, ['plante', 'roche'], [80, 120, 84, 60, 96, 110]],
+  ];
+  const ALT = {}, ALT_BY = {}; // id virtuel → forme ; espèce normale → [ids virtuels]
+  const REGION_N = { alola: 'Alola', galar: 'Galar', hisui: 'Hisui' };
+  ALT_DATA.forEach(([base, key, n, pid, ts, b, role], i) => {
+    const s0 = sp(base); if (!s0 || !RARITY[base]) return;
+    const id = 50000 + i, regional = !!REGION_N[key];
+    D.species[id] = Object.assign({}, s0, { id, n, t: ts.map(x => T[x]), b, pid, altOf: base, altKey: key, evo: [], from: null });
+    RARITY[id] = RARITY[base];
+    ALT[id] = { id, base, key, n, regional, region: REGION_N[key] || null, lvl: regional ? (remaining(base) ? 15 : 30) : 50 };
+    (ALT_BY[base] = ALT_BY[base] || []).push(id);
+    if (role) ROLE_OVERRIDE[id] = role;
+  });
+  // Lignées régionales : chaque forme évolue vers la forme de la même région (sinon vers l'évolution normale).
+  for (const a of Object.values(ALT)) {
+    const s0 = sp(a.base), alt = sid => (ALT_BY[sid] || []).find(v => ALT[v].key === a.key);
+    D.species[a.id].evo = (s0.evo || []).map(e => [alt(e[0]) || e[0], ...e.slice(1)]);
+    if (a.regional && s0.from && alt(s0.from)) D.species[a.id].from = alt(s0.from);
+  }
+  const altsOf = sid => { const base = (ALT[sid] && ALT[sid].base) || sid; return [base, ...(ALT_BY[base] || [])]; };
+  root.ArenaData = { ALT, ALT_BY, altsOf, rarOf, D, sp, bst, RARITIES, RARITY_ORDER, RARITY, POOL, levelCap, starsOf, formOf, ultimatesOf, evolutionsOf, remaining, GMAX, rootOf, family, stages, skillsOf: null, AILMENTS, REGIONS, genRoots, ROLES, ROLE_ORDER, roleOf };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1758,6 +1828,35 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const fx = entry[1], i = fx.findIndex(e => e.k === 'dmgUp'); if (i < 0) continue;
     fx[i] = F(st[0], Math.max(2, Math.round(fx[i].v * st[1])));
   }
+  // Passifs des formes alternatives de Légendaires et Fabuleux (formes régionales des oiseaux légendaires comprises).
+  const ALT_PASSIVES = {
+    '386:attaque': ['Mutation Offensive', [F('dmgUp', 30), F('crit', 15), F('firstStrike', 30)]],
+    '386:defense': ['Mutation Défensive', [F('bulwark', 25), F('teamDr', 10), F('thorns', 20), F('hp', 20)]],
+    '386:vitesse': ['Mutation Véloce', [F('speed', 25), F('doubleTurn', 20), F('evade', 15)]],
+    '487:originel': ['Monde Originel', [F('infiltrate', 40), F('dmgUp', 25), F('markOnHit', 15), F('endure', 1)]],
+    '492:celeste': ['Grâce Céleste', [F('speed', 20), F('doubleTurn', 15), F('statusAura', 25, { ail: 1 })]],
+    '483:originel': ['Rugissement Originel', [F('timeLock', 150), F('typeUp', 30, { t: 9 }), F('bulwark', 15)]],
+    '484:originel': ['Fracture Originelle', [F('dmgUp', 25), F('typeUp', 30, { t: 11 }), F('crit', 15)]],
+    '641:totem': ['Ouragan Totémique', [F('aura', 12), F('typeUp', 30, { t: 3 }), F('speed', 15)]],
+    '642:totem': ['Foudre Totémique', [F('statusAura', 30, { ail: 1 }), F('typeUp', 30, { t: 13 }), F('dmgUp', 15)]],
+    '645:totem': ['Intimidation Totémique', [F('intimidate', 1, { stat: 'atk' }), F('typeUp', 30, { t: 5 }), F('dmgUp', 20)]],
+    '905:totem': ['Amour Totémique', [F('teamAll', 8), F('regen', 4), F('bulwark', 10)]],
+    '646:noir': ['Téra-Voltage Glacé', [F('infiltrate', 30), F('dmgUp', 25), F('typeUp', 25, { t: 15 })]],
+    '646:blanc': ['Turbobrasier Glacé', [F('infiltrate', 30), F('dmgUp', 25), F('statusAura', 25, { ail: 3 })]],
+    '648:pirouette': ['Danse Combative', [F('doubleTurn', 15), F('crit', 15), F('lastStand', 30)]],
+    '720:dechaine': ['Magicien Déchaîné', [F('infiltrate', 40), F('dmgUp', 25), F('killRush', 40)]],
+    '718:parfait': ['Forme Parfaite', [F('hp', 30), F('bulwark', 20), F('teamDr', 12), F('endure', 1)]],
+    '800:criniere': ['Prisme du Couchant', [F('critShield', 12), F('dmgUp', 25), F('crit', 15)]],
+    '800:ailes': ['Prisme de l’Aurore', [F('markOnHit', 18), F('dmgUp', 25), F('infiltrate', 25)]],
+    '888:couronne': ['Épée Suprême', [F('dmgUp', 30), F('crit', 20), F('firstStrike', 30), F('infiltrate', 20)]],
+    '889:couronne': ['Bouclier Suprême', [F('bulwark', 25), F('teamDr', 12), F('shieldStart', 12), F('thorns', 20)]],
+    '898:froid': ['Unité Équestre Glacée', [F('dmgUp', 25), F('moxie', 15), F('typeUp', 25, { t: 15 })]],
+    '898:effroi': ['Unité Équestre Spectrale', [F('dmgUp', 25), F('killRush', 50), F('speed', 15)]],
+    '144:galar': ['Regard Glaçant', [F('statusAura', 20, { ail: 2 }), F('markOnHit', 15), F('dmgUp', 15)]],
+    '145:galar': ['Coup Fulgurant', [F('firstStrike', 35), F('dmgUp', 20), F('crit', 10)]],
+    '146:galar': ['Furie Ténébreuse', [F('killRush', 40), F('dmgUp', 20), F('lastStand', 25)]],
+  };
+  for (const a of Object.values(A.ALT || {})) { const e = ALT_PASSIVES[a.base + ':' + a.key]; if (e) PASSIVE_TABLE[a.id] = e; }
   for (const [id, e] of Object.entries(UNIQUE_FX)) if (PASSIVE_TABLE[id]) PASSIVE_TABLE[id][1].push(e);
   const STAT_FR2 = { atk: 'Attaque', def: 'Défense', spa: 'Atq. Spé', spd: 'Déf. Spé', spe: 'Vitesse' };
   const AIL_VERB = { 1: 'paralyser', 2: 'endormir', 3: 'geler', 4: 'brûler', 5: 'empoisonner' };
@@ -2049,7 +2148,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const cache = {};
   function skillsOf(sid) {
     if (cache[sid]) return cache[sid];
-    const s = sp(sid), rootId = A.rootOf(sid), role = A.roleOf(sid), rar = A.RARITY[sid];
+    // Forme régionale ou alternative : son propre kit (partagé par sa lignée régionale), pas celui de la forme normale.
+    const kitRoot = id => { let x = sp(id); while (x.from && sp(x.from) && sp(x.from).altOf) x = sp(x.from); return x.altOf ? x.id : A.rootOf(id); };
+    const s = sp(sid), rootId = kitRoot(sid), role = A.roleOf(sid), rar = A.RARITY[sid];
     const top = descendants(sid).map(sp).sort((a, b) => A.bst(b) - A.bst(a))[0];
     const recipes = familyKit(rootId, role, top);
     const t1 = s.t[0], t2 = s.t[1] || s.t[0];
@@ -2066,7 +2167,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       return `${HEAD[kind] ? HEAD[kind][h(n + 90) % 4] : 'Assaut'} ${de(w)}${tail(n, g)}`;
     }
     const P = v => Math.round(v * M);
-    const sig = (rar === 'L' || rar === 'F' || rar === 'M') && A.remaining(sid) === 0 ? `${SIG[rar][role][h(7) % 4]} ${de(s.n)}` : null;
+    const sig = (rar === 'L' || rar === 'F' || rar === 'M') && A.remaining(sid) === 0 ? `${SIG[rar][role][h(7) % 4]} ${de(s.n.replace(/ \(.*\)$/, '').replace(/ (d’Alola|de Galar|de Hisui)$/, ''))}` : null;
     const ctrlAil = CTRL_AIL[t1] || 2;
     const kit = recipes.map((r, slot) => {
       const t = slot === 1 ? t2 : t1;
@@ -2262,7 +2363,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   function calibrate() {
     const fin = Object.keys(D.species).map(Number).filter(id => A.RARITY[id] && A.remaining(id) === 0);
     const r = Object.fromEntries(fin.map(id => [id, rawRating(id)]));
-    const q = (k, p) => { const a = fin.filter(id => A.RARITY[id] === k).map(id => r[id]).sort((x, y) => x - y); return a[Math.floor(p * (a.length - 1))]; };
+    const q = (k, p) => { const a = fin.filter(id => A.RARITY[id] === k && !sp(id).altOf).map(id => r[id]).sort((x, y) => x - y); return a[Math.floor(p * (a.length - 1))]; };
     const floorL = q('L', 0.5) * 0.9, floorM = q('L', 0.5) * 1.04;
     const band = { N: [0, floorL * 0.86], R: [0, floorL * 0.88], E: [0, q('L', 0.5)], L: [floorL, Infinity], F: [floorL * 1.04, Infinity], M: [floorM, Infinity] };
     calib = {};
@@ -3921,6 +4022,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (spec.waves) return B.create(allies, mk(spec.waves[0]), spec.waves.slice(1).map(mk));
     return B.create(allies, mk(spec.enemies));
   }
+  // ---------- Formes régionales et alternatives ----------
+  // Un Pokémon peut prendre une autre forme (Hisui, Alola, Galar, Deoxys Attaque…) à partir d'un niveau, contre des
+  // Pokédollars : types, stats, rôle, compétences et passif changent. Revenir à la forme normale coûte autant.
+  const ALT_COST = { N: 5000, R: 8000, E: 12000, L: 25000, F: 35000, M: 50000 };
+  function altOptions(m) {
+    if (!A.ALT) return [];
+    const base = (A.ALT[m.sid] && A.ALT[m.sid].base) || m.sid, list = A.altsOf(m.sid);
+    if (list.length < 2) return [];
+    return list.filter(id => id !== m.sid).map(id => { const a = A.ALT[id], lvl = a ? a.lvl : 1, cost = ALT_COST[A.RARITY[id]] || 10000;
+      return { id, normal: id === base, name: A.sp(id).n, lvl, cost, region: a && a.region, ok: m.lv >= lvl && S.gold >= cost && !m.form, why: m.form ? 'Retire d’abord sa forme ultime (Méga / Gigamax).' : m.lv < lvl ? `Niveau ${lvl} requis.` : S.gold < cost ? 'Pas assez de Pokédollars.' : '' }; });
+  }
+  function changeForm(m, id) {
+    const o = altOptions(m).find(x => x.id === id); if (!o || !o.ok) return false;
+    S.gold -= o.cost; m.sid = id; save(); return true;
+  }
   // Ligne de chaque Pokémon de l'équipe (modifiable dans l'écran Équipe) ; par défaut selon son rôle.
   // Places limitées (2 Avant, 3 Milieu, 2 Arrière) : la ligne choisie est gardée si possible, sinon corrigée.
   const rawRow = m => (S.formation || {})[m.uid] || B.DEFAULT_ROW[A.roleOf(m.sid)] || 'mid';
@@ -4055,7 +4171,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     RUNE_LOOT, feedPlan, maxFeedLevel, feedTo, QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, arenaThreat, arenaLevel, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, forgeProg, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
-    buildBattle, finishBattle, rowOf, setRow, TYPE_N, enemyMon, enemyTeam,
+    buildBattle, finishBattle, rowOf, setRow, altOptions, changeForm, ALT_COST, TYPE_N, enemyMon, enemyTeam,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -5181,6 +5297,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     return speciesImg(m.sid, cls, m.shiny);
   }
   function speciesImg(sid, cls, shiny) {
+    const so = sp(sid);
+    if (so && so.pid) { const base = so.altOf; return `<img class="spr ${cls || ''}" src="${SPR}/pokemon/other/home/${shiny ? 'shiny/' : ''}${so.pid}.png" alt="${esc(so.n)}" loading="lazy" onerror="this.onerror=null;this.src='${SPR}/pokemon/other/home/${base}.png'">`; }
     const bg = atlasBg(shiny && ATLAS && ATLAS.shiny ? 'shiny' : 'front', sid);
     return bg ? `<img class="spr ${cls || ''}" src="${BLANK}" alt="${esc(sp(sid).n)}" style="background:${bg}">`
       : `<img class="spr ${cls || ''}" src="${SPR}/pokemon/other/home/${shiny ? 'shiny/' : ''}${sid}.png" alt="${esc(sp(sid).n)}" loading="lazy">`;
@@ -5509,7 +5627,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const done = Object.keys(s.campaign).length;
     const qn = G.questsClaimable();
     const ach = G.claimable(), balls = Object.keys(G.TICKETS).reduce((a, k) => a + (s.tickets[k] || 0), 0);
-    const total = Object.keys(A.D.species).filter(id => A.RARITY[id]).length;
+    const total = Object.keys(A.D.species).filter(id => A.RARITY[id] && !A.sp(+id).altOf).length;
     // Point d'accès posé sur le décor : [clé, titre, détail, icône, position (gauche %, haut %), badge].
     const spot = (k, t, sub, icon, x, y, badge, cls) => `<button class="spot ${cls || ''}" data-go="${k}" style="left:${x}%;top:${y}%">${badge ? `<i class="badge">${badge}</i>` : ''}<span class="spot-ic">${icon}</span><b>${t}</b><small>${esc(sub)}</small></button>`;
     const page = (n, title, svg, spots, extra) => `<section class="scene" data-page="${n}"><div class="scene-art">${svg}${extra || ''}${spots}</div><h2 class="scene-title">${title}</h2></section>`;
@@ -5553,7 +5671,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   let dexRegion = 0;
   function pokedexScreen() {
     const s = S(), seen = new Set(s.dex);
-    const all = Object.values(A.D.species).filter(x => A.RARITY[x.id]);
+    const all = Object.values(A.D.species).filter(x => A.RARITY[x.id] && !x.altOf);
     const list = all.filter(x => x.g === dexRegion + 1).sort((a, b) => a.id - b.id);
     const got = list.filter(x => seen.has(x.id)).length;
     app.innerHTML = topbar('Pokédex') + `<div class="page">
@@ -5688,6 +5806,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ${evos.length && !m.form ? `<section><h3>Évolution · palier ${'★'.repeat(A.starsOf(m) + 1)}</h3><p class="muted small">Atteins le niveau ${cap}, puis fais évoluer pour débloquer 10 niveaux de plus.</p>
         <div class="evo-row">${evos.map(e => `<button class="evo ${atCap ? '' : 'locked'}" data-evo="${e}">${speciesImg(e, '', m.shiny)}<b>${esc(sp(e).n)}</b><span>max N.${A.levelCap({ sid: e })}</span><small class="evo-gain">${(b => b ? esc(A.evoBonusText(b)) : '')(A.evoBonuses(e).slice(-1)[0])}</small></button>`).join('')}</div>
         <p class="cost">Coût : <b>${ec.crystals}</b> cristaux ${esc(G.TYPE_N(ec.type))} (tu en as ${s.crystals[ec.type] || 0}) · <b>${fmt(ec.gold)}</b> ₽</p></section>` : ''}
+      ${(fo => fo.length ? `<section><h3>Formes</h3><p class="muted small">Formes régionales ou alternatives : types, stats, rôle, compétences${A.passivesOf(m.sid).length ? ' et passif' : ''} changent. Touche une forme pour voir le détail avant de changer.</p>
+        <div class="evo-row">${fo.map(o => `<button class="evo ${o.ok ? '' : 'locked'}" data-altf="${o.id}">${speciesImg(o.id, '', m.shiny)}<b>${esc(o.name)}</b><span>${o.normal ? 'Forme normale' : o.region ? 'Forme de ' + o.region : 'Forme alternative'} · N.${o.lvl}</span></button>`).join('')}</div></section>` : '')(G.altOptions(m))}
       ${ults.length ? `<section><h3>Forme ultime · ★★★★★★ niveau 100</h3><p class="muted small">Dès le niveau ${Math.min(80, cap)}, éveille sa forme ultime. Méga : ${G.ULT_COST.mega.n} Méga-Cristal${G.ULT_COST.mega.n > 1 ? 'x' : ''} · Gigamax : ${G.ULT_COST.gmax.n} Particule${G.ULT_COST.gmax.n > 1 ? 's' : ''} Dynamax · ${fmt(G.ULT_COST.mega.gold)} ₽ (succès « Prêt pour l’éveil », Sanctuaire Ultime).</p>
         <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
       ${evoBonusHtml(m)}
@@ -5721,6 +5841,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ft.oninput = upd; upd();
       app.querySelector('[data-feedto]').onclick = () => { const before = m.lv, t = +ft.value; if (G.feedTo(m, t)) toast(`${monName(m)} : niveau ${before} → ${m.lv}`); else toast('Pas assez de bonbons ou de Pokédollars.'); re(); }; }
     app.querySelector('[data-feedmax]').onclick = () => { const before = m.lv; for (const c of ['L', 'M', 'S']) G.feed(m, c, 999); toast(m.lv > before ? `${monName(m)} : niveau ${before} → ${m.lv}` : 'Pas assez de bonbons ou de Pokédollars.'); re(); };
+    app.querySelectorAll('[data-altf]').forEach(b => b.onclick = async () => {
+      const id = +b.dataset.altf; if (!await formPreview(m, id)) return;
+      if (!G.changeForm(m, id)) return toast('Changement de forme impossible.');
+      toast(`${sp(m.sid).n} : nouvelle forme !`); re();
+    });
     app.querySelectorAll('[data-evo]').forEach(b => b.onclick = async () => {
       const to = +b.dataset.evo; if (!await evoPreview(m, { sid: to })) return;
       const before = { img: monImg(m), name: monName(m) };
@@ -5748,6 +5873,24 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   }
   // Aperçu d'une évolution ou d'une forme ultime : stats avant / après (au niveau actuel, runes comprises), niveau max,
   // rareté, types, bonus d'évolution et passifs gagnés ; on confirme depuis cette fenêtre.
+  // Aperçu d'un changement de forme : types, rôle, stats, puis toutes les compétences et le passif de la nouvelle forme.
+  function formPreview(m, id) {
+    const o = G.altOptions(m).find(x => x.id === id); if (!o) return Promise.resolve(false);
+    const after = Object.assign({}, m, { sid: id }), st0 = G.statsOf(m), st1 = G.statsOf(after), p0 = G.powerOf(m), p1 = G.powerOf(after);
+    const row = ([k, l]) => { const d = st1[k] - st0[k]; return `<tr><td>${l}</td><td>${fmt(st0[k])}</td><td>→</td><td><b>${fmt(st1[k])}</b></td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d ? fmt(d) : '='}</td></tr>`; };
+    const r0 = A.ROLES[A.roleOf(m.sid)], r1 = A.ROLES[A.roleOf(id)], t0 = sp(m.sid).t, t1 = sp(id).t;
+    return modal(`<div class="evp"><div class="modal-head"><button class="btn ghost small" data-close>‹ Retour</button><h3>Changement de forme</h3></div>
+      <div class="evp-head"><div>${monImg(m)}<b>${esc(monName(m))}</b></div><i>➜</i><div>${monImg(after)}<b>${esc(sp(id).n)}</b></div></div>
+      <div class="evp-facts"><span>Types ${t0.map(typeBadge).join('')} → ${t1.map(typeBadge).join('')}</span><span>Rôle <b>${r0.i} ${r0.n}</b> → <b style="color:${r1.color}">${r1.i} ${r1.n}</b></span>
+        <span>Puissance <b>${fmt(p0)} → ${fmt(p1)}</b> <em class="${p1 >= p0 ? 'up' : 'down'}">${p1 >= p0 ? '+' : ''}${fmt(p1 - p0)}</em></span></div>
+      <table class="evp-stats"><tbody>${STAT_LABELS.slice(0, 6).map(row).join('')}</tbody></table>
+      <h4>Compétences de la nouvelle forme</h4>${A.skillsOfMon(after).map(skillHtml).join('')}
+      ${A.passivesOf(id).map(p => `<div class="skill passive"><div class="skill-head"><b>Passif · ${esc(p.n)}</b></div><p>${esc(p.d)}</p></div>`).join('')}
+      <p class="muted small">Stats au niveau actuel (${m.lv}), runes comprises. Coût : <b>${fmt(o.cost)} ₽</b> (tu as ${fmt(S().gold)} ₽). Niveau requis : ${o.lvl}. Tu peux changer à nouveau plus tard, au même prix.${o.normal ? '' : ' Une forme régionale évolue en forme de la même région.'}</p>
+      ${o.ok ? '' : `<p class="evp-why">🔒 ${o.why}</p>`}
+      <div class="row end"><button class="btn ghost" data-close>Fermer</button><button class="btn primary" data-go-alt ${o.ok ? '' : 'disabled'}>Changer de forme</button></div></div>`,
+      (bg, close) => { bg.querySelector('[data-go-alt]').onclick = () => close(true); }).then(v => !!v);
+  }
   function evoPreview(m, to) {
     const after = Object.assign({}, m, to), ult = !!to.form, f = ult ? A.ultimatesOf(m.sid).find(x => x.key === to.form) : null;
     const can = ult ? G.canAscend(m) : G.canEvolve(m), cost = ult ? G.ULT_COST[f.kind] : G.evolveCost(m), s = S();
