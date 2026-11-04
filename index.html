@@ -1609,6 +1609,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   for (const a of Object.values(ALT)) {
     const s0 = sp(a.base), alt = sid => (ALT_BY[sid] || []).find(v => ALT[v].key === a.key);
     D.species[a.id].evo = (s0.evo || []).map(e => [alt(e[0]) || e[0], ...e.slice(1)]);
+    const own = { '215:hisui': 903, '211:hisui': 904 }[a.base + ':' + a.key]; // Farfuret de Hisui → Farfuraille, Qwilfish de Hisui → Qwilpik
+    if (own && sp(own)) D.species[a.id].evo = [[own]];
     if (a.regional && s0.from && alt(s0.from)) D.species[a.id].from = alt(s0.from);
   }
   const altsOf = sid => { const base = (ALT[sid] && ALT[sid].base) || sid; return [base, ...(ALT_BY[base] || [])]; };
