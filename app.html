@@ -4050,8 +4050,11 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Premier Mythique : choix unique de le garder ou de le retirer au hasard (un autre Mythique, différent).
   function mythRerollPending() { const r = S.mythReroll; if (!r || r.state !== 'open') return null; const m = S.mons.find(x => x.uid === r.uid); if (!m || A.RARITY[m.sid] !== 'M') { r.state = 'done'; return null; } return m; }
   function keepMyth() { if (S.mythReroll) { S.mythReroll.state = 'done'; save(); } }
-  function rerollMyth() {
-    const m = mythRerollPending(); if (!m) return null;
+  // Joueurs qui avaient déjà un Mythique avant cette règle : un retirage offert, à utiliser depuis la fiche d'un Mythique.
+  function migrateMythReroll() { if (!S.mythReroll && S.started && S.mons.some(m => A.RARITY[m.sid] === 'M')) S.mythReroll = { state: 'grant' }; }
+  const mythRerollGranted = () => !!(S.mythReroll && S.mythReroll.state === 'grant');
+  function rerollMyth(target) {
+    const m = target && mythRerollGranted() && A.RARITY[target.sid] === 'M' ? target : mythRerollPending(); if (!m) return null;
     const pool = A.POOL.M.filter(id => id !== A.rootOf(m.sid)), sid = pool[Math.floor(Math.random() * pool.length)];
     m.sid = sid; m.form = null; markDex(sid); S.mythReroll.state = 'done'; S.mythReroll.to = sid; save(); return m;
   }
@@ -4156,13 +4159,13 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       tickets: { normal: 5, elite: 0, legend: 0, chance: 0 }, trainer: { lv: 1, exp: 0 }, claimed: {}, notices: [] };
   }
   let S = fresh(), onSave = null;
-  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateRuneRoll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
+  function load() { try { const v = localStorage.getItem(KEY); if (v) S = Object.assign(fresh(), JSON.parse(v)); } catch (e) { /* stockage indisponible */ } migrateRunes(); migrateRuneRoll(); migrateMythReroll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); if (S.started) { questBook().d.login = 1; questBook().w.login = 1; } return S; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SAVED_AT, String(Date.now())); } catch (e) { /* ignore */ } if (onSave) onSave(); }
   function snapshot() { let at = 0; try { at = +localStorage.getItem(SAVED_AT) || 0; } catch (e) { /* ignore */ } return { v: 1, at, state: JSON.stringify(S) }; }
   function restore(snap) {
     if (!snap || !snap.state) return false;
     try { S = Object.assign(fresh(), JSON.parse(snap.state)); localStorage.setItem(KEY, snap.state); localStorage.setItem(SAVED_AT, String(snap.at || Date.now())); } catch (e) { return false; }
-    migrateRunes(); migrateRuneRoll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); return true;
+    migrateRunes(); migrateRuneRoll(); migrateMythReroll(); migrateSouls(); migrateSecret(); migrateAltars(); migrateAchFix(); migrateForges(); arenaRefresh(); return true;
   }
   const exportCode = () => 'PSA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(snapshot()))));
   function importCode(code) {
@@ -4189,7 +4192,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     RUNE_LOOT, feedPlan, maxFeedLevel, feedTo, QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, arenaThreat, arenaLevel, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, forgeProg, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
-    buildBattle, finishBattle, rowOf, setRow, mythRerollPending, keepMyth, rerollMyth, altOptions, changeForm, ALT_COST, TYPE_N, enemyMon, enemyTeam,
+    buildBattle, finishBattle, rowOf, setRow, mythRerollPending, mythRerollGranted, keepMyth, rerollMyth, altOptions, changeForm, ALT_COST, TYPE_N, enemyMon, enemyTeam,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -5829,6 +5832,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         <div class="evo-row">${fo.map(o => `<button class="evo ${o.ok ? '' : 'locked'}" data-altf="${o.id}">${speciesImg(o.id, '', m.shiny)}<b>${esc(o.name)}</b><span>${o.normal ? 'Forme normale' : o.region ? 'Forme de ' + o.region : 'Forme alternative'} · N.${o.lvl}</span></button>`).join('')}</div></section>` : '')(G.altOptions(m))}
       ${ults.length ? `<section><h3>Forme ultime · ★★★★★★ niveau 100</h3><p class="muted small">Dès le niveau ${Math.min(80, cap)}, éveille sa forme ultime. Méga : ${G.ULT_COST.mega.n} Méga-Cristal${G.ULT_COST.mega.n > 1 ? 'x' : ''} · Gigamax : ${G.ULT_COST.gmax.n} Particule${G.ULT_COST.gmax.n > 1 ? 's' : ''} Dynamax · ${fmt(G.ULT_COST.mega.gold)} ₽ (succès « Prêt pour l’éveil », Sanctuaire Ultime).</p>
         <div class="evo-row">${ults.map(f => `<button class="evo ult ${G.canAscend(m) ? '' : 'locked'}" data-ult="${f.key}">${monImg({ sid: m.sid, form: f.key })}<b>${esc(f.n)}</b><span>${f.kind === 'gmax' ? 'Particules ×' + G.ULT_COST.gmax.n : 'Méga-Cristaux ×' + G.ULT_COST.mega.n}</span></button>`).join('')}</div></section>` : ''}
+      ${G.mythRerollGranted() && A.RARITY[m.sid] === 'M' ? `<section class="myth-rr-sec"><h3>🎲 Retirage offert</h3><p class="muted small">Tu avais déjà un Mythique avant l’arrivée du retirage du premier Mythique : tu peux, <b>une seule fois</b>, remplacer un de tes Mythiques par un autre tiré au hasard (différent). Niveau, runes et âmes sont conservés${m.form ? ' ; sa forme ultime (Méga / Gigamax) sera retirée' : ''}.</p><div class="row"><button class="btn primary" data-mythrr>Retirer ${esc(sp(m.sid).n)} au hasard</button></div></section>` : ''}
       ${evoBonusHtml(m)}
       <section><h3>Runes</h3>${runeSetsHtml(m)}<div class="row rune-presets-bar"><button class="btn small" data-rsave>💾 Sauvegarder ce set</button><button class="btn small" data-rload>📂 Sets sauvegardés (${(s.runePresets || []).length})</button></div><div class="rune-slots">${[1, 2, 3, 4, 5, 6].map(n => { const r = m.runes[n - 1] && s.runes.find(x => x.id === m.runes[n - 1]); return `<button class="rune-slot ${r ? 'full' : ''}" data-slot="${n}">${r ? runeMini(r) : `<span class="slot-n">${ROMAN[n - 1]}</span><span class="muted small">vide</span>`}</button>`; }).join('')}</div></section>
       <section><h3>Stats</h3><div class="stats">${STAT_LABELS.map(([key, l]) => `<div><span>${l}</span><b>${fmt(cst[key])}</b>${critNote[key] ? `<small class="stat-note">${critNote[key]}</small>` : ''}</div>`).join('')}</div><p class="muted small">Valeurs en combat : rôle et passifs du Pokémon compris (les auras des autres membres de l’équipe s’y ajoutent en combat). En combat, les PV sont multipliés par ${String(B.HP_MULT).replace(".", ",")}.</p></section>
@@ -5860,6 +5864,15 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       ft.oninput = upd; upd();
       app.querySelector('[data-feedto]').onclick = () => { const before = m.lv, t = +ft.value; if (G.feedTo(m, t)) toast(`${monName(m)} : niveau ${before} → ${m.lv}`); else toast('Pas assez de bonbons ou de Pokédollars.'); re(); }; }
     app.querySelector('[data-feedmax]').onclick = () => { const before = m.lv; for (const c of ['L', 'M', 'S']) G.feed(m, c, 999); toast(m.lv > before ? `${monName(m)} : niveau ${before} → ${m.lv}` : 'Pas assez de bonbons ou de Pokédollars.'); re(); };
+    const mr = app.querySelector('[data-mythrr]');
+    if (mr) mr.onclick = async () => {
+      if (!await confirmBox(`Retirer <b>${esc(sp(m.sid).n)}</b> au hasard ?<br><br>Il sera remplacé par un autre Mythique tiré au hasard. Ce retirage n’est offert qu’<b>une fois</b> : c’est définitif.`, 'Retirer')) return;
+      const before = sp(m.sid).n, r = G.rerollMyth(m); if (!r) return toast('Retirage indisponible.');
+      await cinematic([{ mon: r, rar: 'M', dupe: false }], 'master');
+      await modal(`<div class="notice myth-rr"><span class="kicker">Nouveau tirage</span><h2>${esc(sp(r.sid).n)}</h2><div class="myth-rr-img">${monImg(r, 'big')}</div><p class="muted small">${esc(before)} a été remplacé. Le retirage est utilisé.</p>
+        <div class="row end"><button class="btn primary" data-close>Super !</button></div></div>`, null, { cls: 'center' });
+      re();
+    };
     app.querySelectorAll('[data-altf]').forEach(b => b.onclick = async () => {
       const id = +b.dataset.altf; if (!await formPreview(m, id)) return;
       if (!G.changeForm(m, id)) return toast('Changement de forme impossible.');
@@ -7027,6 +7040,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Annonce des succès débloqués (après un combat, une invocation, une évolution…).
   function showNotices() {
     const fresh = G.newAchievements(); G.save();
+    if (G.mythRerollGranted() && !S().mythReroll.told) { S().mythReroll.told = true; G.save(); toast('🎲 Retirage offert : ouvre la fiche d’un de tes Mythiques pour le retirer une fois au hasard.'); }
     const qd = G.newQuests().filter(n => n !== 'Passer au Centre Pokémon'); if (qd.length) toast(`📋 Quête${qd.length > 1 ? 's' : ''} accomplie${qd.length > 1 ? 's' : ''} : ${qd.slice(0, 2).join(' · ')}${qd.length > 2 ? '…' : ''} — à récupérer dans Quêtes.`);
     if (fresh.length) toast(`🏆 Succès débloqué${fresh.length > 1 ? 's' : ''} : ${fresh.slice(0, 2).join(' · ')}${fresh.length > 2 ? '…' : ''} — à récupérer dans Succès.`);
     return Promise.resolve();
