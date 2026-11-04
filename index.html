@@ -1382,6 +1382,8 @@ textarea { width: 100%; background: #0d0920; color: var(--ink); border: 1px soli
 .tm-warn { color: #ff8a5e; font-size: 10.5px; font-weight: 700; }
 .weekly span.got { opacity: .3; filter: grayscale(1); position: relative; }
 .weekly span.got::after { content: '✓'; position: absolute; right: 0; bottom: 0; font-size: 10px; font-weight: 900; color: #3ee08f; }
+.myth-rr-img { display: grid; place-items: center; margin: 8px 0; }
+.myth-rr-img .spr { width: 140px; height: 140px; }
 
 </style>
 <div id="app"></div>
@@ -3399,7 +3401,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const dupe = S.mons.find(m => A.rootOf(m.sid) === sid);
       const mon = newMon(sid, 5);
       if (dupe && !mon.shiny) { const ty = A.sp(sid).t[0]; S.crystals[ty] = (S.crystals[ty] || 0) + A.RARITIES[rk].dupe; S.souls = S.souls || {}; S.souls[sid] = (S.souls[sid] || 0) + 1; out.push({ mon, rar: rk, dupe: true, crystals: A.RARITIES[rk].dupe, type: ty, soul: true }); }
-      else { S.mons.push(mon); markDex(sid); out.push({ mon, rar: rk, dupe: false }); if (S.team.length < TEAM_SIZE) S.team.push(mon.uid); }
+      else {
+        // Tout premier Mythique : le joueur pourra le retenter une fois au hasard s'il n'est pas satisfait.
+        if (rk === 'M' && !S.mythReroll && !S.mons.some(m => A.RARITY[m.sid] === 'M')) S.mythReroll = { uid: mon.uid, state: 'open' };
+        S.mons.push(mon); markDex(sid); out.push({ mon, rar: rk, dupe: false }); if (S.team.length < TEAM_SIZE) S.team.push(mon.uid); }
       S.stats.pulls++; qTrack('summon');
     }
     save(); return out;
@@ -4042,6 +4047,14 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     const o = altOptions(m).find(x => x.id === id); if (!o || !o.ok) return false;
     S.gold -= o.cost; m.sid = id; save(); return true;
   }
+  // Premier Mythique : choix unique de le garder ou de le retirer au hasard (un autre Mythique, différent).
+  function mythRerollPending() { const r = S.mythReroll; if (!r || r.state !== 'open') return null; const m = S.mons.find(x => x.uid === r.uid); if (!m || A.RARITY[m.sid] !== 'M') { r.state = 'done'; return null; } return m; }
+  function keepMyth() { if (S.mythReroll) { S.mythReroll.state = 'done'; save(); } }
+  function rerollMyth() {
+    const m = mythRerollPending(); if (!m) return null;
+    const pool = A.POOL.M.filter(id => id !== A.rootOf(m.sid)), sid = pool[Math.floor(Math.random() * pool.length)];
+    m.sid = sid; m.form = null; markDex(sid); S.mythReroll.state = 'done'; S.mythReroll.to = sid; save(); return m;
+  }
   // Ligne de chaque Pokémon de l'équipe (modifiable dans l'écran Équipe) ; par défaut selon son rôle.
   // Places limitées (2 Avant, 3 Milieu, 2 Arrière) : la ligne choisie est gardée si possible, sinon corrigée.
   const rawRow = m => (S.formation || {})[m.uid] || B.DEFAULT_ROW[A.roleOf(m.sid)] || 'mid';
@@ -4176,7 +4189,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     RUNE_LOOT, feedPlan, maxFeedLevel, feedTo, QUESTS, QUEST_CHESTS, questState, claimQuest, claimChest, questsClaimable, newQuests, qTrack, SECRET_CHOICES, claimSecret, CHAIN_K, CURVE, TOWER_CURVE, campaignStage, stageUnlocked, stageLevel, CHAPTER_STAGES, campaignReward, TOWER_FLOORS, TOWER_THEMES, towerTheme, towerFloor, towerOpen, towerLevel, DIFFS, DIFF_ORDER, teamRule, campaignDone, DEFI_MAX_E, prog, diffLevel, diffOpen,
     arenaOpponents, arenaBattle, arenaRefresh, tierOf, TIERS, ARENA_TICKETS,
     RUNE_MYTH, SHARD_OF, shardValue, disintegrate, FUSE_MIN, FUSE_MAX, FUSE_STEP, fuseOdds, fuseRunes, shopOffers, buyOffer, nextShopRefresh, DUNGEONS, dungeonCast, arenaThreat, arenaLevel, RUNE_FORGES, RUNE_FORGE_ORDER, FLOORS, floorLevel, floorUnlocked, forgeProg, dungeonBattle, ALTARS, ultimeOpen, ULT_NEED, dgFloors, altarWeeklyLeft, ALTAR_DROP,
-    buildBattle, finishBattle, rowOf, setRow, altOptions, changeForm, ALT_COST, TYPE_N, enemyMon, enemyTeam,
+    buildBattle, finishBattle, rowOf, setRow, mythRerollPending, keepMyth, rerollMyth, altOptions, changeForm, ALT_COST, TYPE_N, enemyMon, enemyTeam,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -6829,7 +6842,21 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     elite: { biome: 'storm', title: 'La Tempête Dorée', kicker: 'Invocation d’élite', line: 'Au cœur de l’orage, les Épiques et les Légendaires répondent à l’appel de l’Hyper Ball.', sil: 6 },
     legend: { biome: 'psychic', title: 'La Faille Cosmique', kicker: 'Invocation légendaire', line: 'La Master Ball ouvre une faille vers les Légendaires, Fabuleux et Mythiques.', sil: 493 },
   };
+  // Premier Mythique obtenu : le garder ou le retirer une seule fois au hasard (choix définitif).
+  async function mythRerollModal() {
+    const m = G.mythRerollPending(); if (!m) return;
+    const choice = await modal(`<div class="notice myth-rr"><span class="kicker">Ton tout premier Mythique</span><h2>${esc(sp(m.sid).n)}</h2><div class="myth-rr-img">${monImg(m, 'big')}</div>
+      <p>Il ne te convient pas ? Tu peux <b>le retirer une seule fois</b> : il sera remplacé par un autre Mythique au hasard (différent). Ce choix est définitif et ne se présentera plus.</p>
+      <div class="row end"><button class="btn" data-keep>Le garder</button><button class="btn primary" data-reroll>🎲 Retirer au hasard</button></div></div>`,
+      (bg, close) => { bg.querySelector('[data-keep]').onclick = () => close('keep'); bg.querySelector('[data-reroll]').onclick = () => close('reroll'); }, { locked: true, cls: 'center' });
+    if (choice !== 'reroll') { G.keepMyth(); return; }
+    const before = sp(m.sid).n, r = G.rerollMyth(); if (!r) return;
+    await cinematic([{ mon: r, rar: 'M', dupe: false }], 'master');
+    await modal(`<div class="notice myth-rr"><span class="kicker">Nouveau tirage</span><h2>${esc(sp(r.sid).n)}</h2><div class="myth-rr-img">${monImg(r, 'big')}</div><p class="muted small">${esc(before)} a été remplacé. Le retirage est utilisé.</p>
+      <div class="row end"><button class="btn primary" data-close>Super !</button></div></div>`, null, { cls: 'center' });
+  }
   function summonScreen() {
+    setTimeout(() => { if (G.mythRerollPending() && !modalRoot.children.length) mythRerollModal().then(() => summonScreen()); }, 300);
     const s = S(), week = G.weeklyList(), got = G.weeklyGot(), left = G.weeklyLeft().length, keys = Object.keys(G.BANNERS);
     const rateBar = bn => bn.weekly ? '' : `<div class="sm-rates">${bn.rates.map(([k, p]) => `<i style="flex:${Math.max(p, 1.6)};--rc:${rar(k).color}" title="${rar(k).n} ${p} %"></i>`).join('')}</div>`;
     smPanel = Math.max(0, Math.min(keys.length - 1, smPanel));
@@ -6879,7 +6906,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     app.querySelectorAll('[data-pull]').forEach(b => b.onclick = async () => {
       const res = G.summon(b.dataset.pull, +b.dataset.n); if (!res) return toast(G.BANNERS[b.dataset.pull].weekly && G.weeklyLeft().length < +b.dataset.n ? 'Plus assez de Pokémon dans la liste du jour.' : `Pas assez de ${G.TICKETS[G.BANNERS[b.dataset.pull].ticket].n}s.`);
       const panel = b.closest('.sm2-panel'); if (panel) { panel.classList.add('throwing'); await new Promise(r => setTimeout(r, 750)); }
-      await cinematic(res, G.BANNERS[b.dataset.pull].ball); if (res.length > 1) await revealGrid(res); await showNotices(); summonScreen();
+      await cinematic(res, G.BANNERS[b.dataset.pull].ball); if (res.length > 1) await revealGrid(res); await mythRerollModal(); await showNotices(); summonScreen();
     });
   }
   // Cinématique : la balle (selon la meilleure rareté obtenue) tombe, tremble 3 fois, s'ouvre dans un éclat de lumière
