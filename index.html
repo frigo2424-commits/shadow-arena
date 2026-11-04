@@ -2261,6 +2261,9 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
         else { k.healStat = b[1] > b[3] ? 'atk' : 'spa'; k.heal = Math.round(k.heal * HEAL_OFF_K); }
       }
     }
+    // Formes imposant une stat : Deoxys Vitesse frappe uniquement selon sa Vitesse, Deoxys Défense selon sa Défense.
+    { const a = A.ALT && A.ALT[sid], fs = a && { '386:vitesse': 'spe', '386:defense': 'def' }[a.base + ':' + a.key];
+      if (fs) for (const k of kit) if (k.pow && k.scale !== fs) { if (!k.scale) k.pow = Math.round(k.pow * (fs === 'spe' ? 0.92 : 1.05)); k.scale = fs; k.statScale = true; } }
     // Ultime basé sur une stat particulière (Vitesse, Défense, PV) : toutes ses attaques suivent la même stat.
     if (kit[2] && kit[2].pow && kit[2].scale) { const sc = kit[2].scale;
       for (const k of kit) if (k.pow && k !== kit[2] && k.scale !== sc) { if (!k.scale) k.pow = Math.round(k.pow * (sc === 'spe' ? 0.92 : 1.05)); k.scale = sc; k.statScale = true; } }
