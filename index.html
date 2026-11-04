@@ -1624,6 +1624,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   // Statut du contrôle selon le type.
   const CTRL_AIL = { 13: 1, 2: 1, 9: 1, 6: 1, 5: 1, 3: 1, 4: 1, 10: 1, 15: 3, 11: 3, 16: 3 };
   const AIL_N = { 1: 'paralyser', 2: 'endormir', 3: 'geler', 4: 'brûler', 5: 'empoisonner' };
+  const AIL_ADJ = { 1: 'paralysée', 2: 'endormie', 3: 'gelée', 4: 'brûlée', 5: 'empoisonnée' }, AIL_ADJ_M = { 1: 'paralysé', 2: 'endormi', 3: 'gelé', 4: 'brûlé', 5: 'empoisonné' };
   const STAT_N = { 1: 'Attaque', 2: 'Défense', 3: 'Atq. Spé', 4: 'Déf. Spé', 5: 'Vitesse' };
   const statTxt = st => st.map(([i, v]) => `${STAT_N[i]} ${v > 0 ? '↑' : '↓'}`).join(', ');
 
@@ -1722,7 +1723,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     788: ['Champ Brumeux', [F('cleanseTurn', 1), F('teamDr', 10)]], 791: ['Spectro-Bouclier', [F('bulwark', 20), F('dmgUp', 20)]],
     792: ['Spectro-Bouclier lunaire', [F('bulwark', 20), F('infiltrate', 25)]], 800: ['Prisme Ultra', [F('multitype', 30), F('dmgUp', 25)]],
     888: ['Lame Indomptable', [F('dmgUp', 30), F('crit', 15), F('firstStrike', 30)]], 889: ['Bouclier Indomptable', [F('teamDr', 15), F('bulwark', 20), F('shieldStart', 15)]],
-    890: ['Pression Infinie', [F('hp', 50), F('dmgUp', 20), F('intimidate', 1, { stat: 'def' })]], 892: ['Poing Invisible', [F('infiltrate', 40), F('crit', 15)]],
+    890: ['Énergie Éthernamax', [F('dmgUp', 25), F('venom', 60), F('typeUp', 20, { t: 4 }), F('presence', 30)]], 892: ['Poing Invisible', [F('infiltrate', 40), F('crit', 15)]],
     894: ['Transistor', [F('speed', 40), F('typeUp', 20, { t: 13 })]], 895: ['Mâchoire Dragon', [F('typeUp', 40, { t: 16 }), F('hp', 15)]],
     896: ['Tension Blanche', [F('statusAura', 15, { ail: 3 }), F('moxie', 15)]], 897: ['Tension Noire', [F('moxie', 15), F('speed', 15)]],
     898: ['Unité Royale', [F('aura', 15), F('regen', 4), F('cleanseTurn', 1)]], 905: ['Charme Ardent', [F('intimidate', 1, { stat: 'atk' }), F('dmgUp', 15)]],
@@ -1752,7 +1753,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const PASSIVE_STYLE = { 8: ['markOnHit', 0.8], 14: ['markOnHit', 0.7], 17: ['killRush', 2], 7: ['bleedOnCrit', 0.2], 4: ['bleedOnCrit', 0.2], 2: ['lastStand', 2],
     10: ['lastStand', 1.6], 16: ['lastStand', 1.5], 3: ['evade', 0.6], 13: ['evade', 0.5], 9: ['critShield', 0.6], 6: ['critShield', 0.6] };
   for (const [id, entry] of Object.entries(PASSIVE_TABLE)) {
-    const s0 = sp(+id), st = s0 && PASSIVE_STYLE[s0.t[0]]; if (!st || !Array.isArray(entry)) continue;
+    const s0 = sp(+id), st = s0 && PASSIVE_STYLE[s0.t[0]]; if (!st || !Array.isArray(entry) || +id === 890) continue; // Éthernatos garde sa pleine puissance
     const fx = entry[1], i = fx.findIndex(e => e.k === 'dmgUp'); if (i < 0) continue;
     fx[i] = F(st[0], Math.max(2, Math.round(fx[i].v * st[1])));
   }
@@ -1801,6 +1802,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       case 'markOnHit': return `ses attaques marquent la cible : elle subit +${v} % de dégâts pendant 2 tours`;
       case 'bleedOnCrit': return `ses coups critiques font saigner la cible (${v} % de ses PV max par tour, 2 tours)`;
       case 'critShield': return `chaque coup critique lui donne un bouclier de ${v} % de ses PV max`;
+      case 'venom': return `les empoisonnements qu’il inflige font +${v} % de dégâts`;
     }
     return '';
   }
@@ -1933,6 +1935,15 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
   const HEAL_OFF_K = 3; // soins selon l'Attaque / Atq. Spé : % de la stat (calibré sur les PV moyens d'une cible)
   // Katagami : son ultime mise sur des dégâts critiques énormes (il a déjà beaucoup de critique par son passif).
   const SPECIES_EDIT = { 798: { 2: { critUp: null, pierce: null, exec: null, critDmg: 60 } } };
+  // Kits entièrement uniques (remplacent les recettes générées ; la puissance est ensuite recalée, × POWER_BONUS).
+  // Éthernatos, Pokémon ultime : il empoisonne à coup sûr, ravage les cibles empoisonnées et son Canon frappe d'autant
+  // plus fort que l'équipe adverse est empoisonnée.
+  const SPECIES_KIT = {
+    890: [{ t: 4, target: 'enemy', pow: 80, cd: 0, n: 'Toxik Infini', ail: 5, ailChance: 100, vsAil: [5, 30] },
+      { t: 4, target: 'all', pow: 92, cd: 3, n: 'Brume Éthernamax', ail: 5, ailChance: 50, vsAil: [5, 40] },
+      { t: 16, target: 'enemy', pow: 230, cd: 4, n: 'Canon Éthernamax', perAil: [5, 15], pierce: 25 }],
+  };
+  const POWER_BONUS = { 890: 1.15 }; // les Pokémon « ultimes » visent plus haut que leur rareté
   const TANK_COUNTER_UP = 50; // % de puissance en plus quand la compétence I d'un tank sert de riposte (ensemble Riposte)
   const REVIVE_CD = { N: 9, R: 8, E: 7, L: 6, F: 5, M: 4 }, REVIVE_MAX = { N: 1, R: 1, E: 1, L: 2, F: 0, M: 0 }; // 0 = illimité
   const used = new Set();
@@ -2061,9 +2072,10 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
       const key = role + ':' + out.map(k => k.recipe).join('/') + ':' + tags.join('/'); // unicité des mécaniques, quel que soit le type
       if (!speciesKeys.has(key) || salt === 39) { speciesKeys.add(key); kit.splice(0, 3, ...out); break; }
     }
+    if (SPECIES_KIT[sid]) SPECIES_KIT[sid].forEach((e, i) => { kit[i] = Object.assign({ slot: i, c, acc: 100, stab: s.t.includes(e.t), role, recipe: 'own' + i }, e); });
     // Style du type sur la compétence II ; effets en plus sur l'ultime selon la rareté (Légendaire 1, Fabuleux et Mythique 2).
-    { const k1 = kit[1].pow ? kit[1] : kit.find(k => k.pow); if (k1) addStyle(k1, t1, hash(sid, 3)); }
-    { const xtra = { L: 1, F: 2, M: 2 }[rar] || 0, u = kit[2];
+    if (!SPECIES_KIT[sid]) { const k1 = kit[1].pow ? kit[1] : kit.find(k => k.pow); if (k1) addStyle(k1, t1, hash(sid, 3)); }
+    if (!SPECIES_KIT[sid]) { const xtra = { L: 1, F: 2, M: 2 }[rar] || 0, u = kit[2];
       if (xtra && u.pow) { addStyle(u, t2, hash(sid, 4)); if (xtra > 1) addStyle(u, t1 === t2 ? (s.t[1] || 16) : t1, hash(sid, 5)); }
       else if (xtra && !u.pow) { if (!u.apBoost) u.apBoost = 100 * xtra; if (xtra > 1 && !u.cdReduce && (u.target === 'allies' || u.target === 'healAll')) u.cdReduce = 1; } }
     // Spécialités de stat : un Pokémon dont la Vitesse, les PV ou la Défense dominent son offensive frappe avec cette
@@ -2126,7 +2138,7 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (!globalThis.NO_NORM) {
       const evo = {}; for (const bo of evoBonuses(sid)) if (bo.kind === 'skill') evo[bo.slot] = (evo[bo.slot] || 0) + bo.pct;
       const sc = A.kitScore(kit, evo), stage = (0.86 + 0.24 * stageInfo(sid).rel) / 1.1, v = 0.94 + (hash(sid, 98) % 13) / 100;
-      const td = ROLE_DMG[role] * RAR_TARGET[rar] * stage * v;
+      const td = ROLE_DMG[role] * RAR_TARGET[rar] * stage * v * (POWER_BONUS[sid] || 1);
       if (td && sc.dmg > 0) { const f = Math.min(1.4, Math.max(0.7, td / sc.dmg)); for (const k of kit) if (k.pow) k.pow = Math.round(k.pow * f); }
       const th = (ROLE_HEAL[role] || 0) * RAR_TARGET[rar] * stage * v;
       if (th && sc.heal > 0) { const f = Math.min(1.4, Math.max(0.7, th / sc.heal)); for (const k of kit) for (const x of ['heal', 'shield', 'regen', 'revive']) if (k[x]) k[x] = Math.max(1, Math.round(k[x] * f)); }
@@ -2161,6 +2173,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (k.bleed) parts.push(`Fait saigner la cible : ${k.bleed[0]} % de ses PV max par tour pendant ${k.bleed[1]} tours (cumulable, jusqu’à 20 % par tour).`);
     if (k.steal) parts.push('Vole un bonus de la cible.');
     if (k.onKill) parts.push('S’il met la cible K.O., il rejoue aussitôt (une fois par tour).');
+    if (k.vsAil) parts.push(`+${k.vsAil[1]} % de dégâts contre une cible ${AIL_ADJ[k.vsAil[0]]}.`);
+    if (k.perAil) parts.push(`+${k.perAil[1]} % de dégâts par ennemi ${AIL_ADJ_M[k.perAil[0]]} (jusqu’à +${k.perAil[1] * 6} %).`);
     if (k.crit) parts.push('Taux de critique doublé.');
     if (k.critUp) parts.push(`+${k.critUp} % de chances de coup critique.`);
     if (k.exec) parts.push(`+${k.exec} % de dégâts contre une cible sous 50 % de PV.`);
@@ -2537,6 +2551,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (P.lastStand && u.hp < u.maxHp * 0.35) dmg *= 1 + P.lastStand / 100;
     if (u.role === 'dps' && u.row === 'back') dmg *= BACK_DPS; // attaquant hors de position
     if (sk.shatter && t.shield > 0) dmg *= 1 + sk.shatter / 100;
+    if (sk.vsAil && t.ail && t.ail.k === A.AILMENTS[sk.vsAil[0]]) dmg *= 1 + sk.vsAil[1] / 100;
+    if (sk.perAil && b) dmg *= 1 + sk.perAil[1] / 100 * b.units.filter(x => x.alive && x.side === t.side && x.ail && x.ail.k === A.AILMENTS[sk.perAil[0]]).length;
     if (u.passives.shine) dmg *= 1.1; // éclat chromatique
     if (b && covered(b, t) && !u.passives.infiltrate && !(sk.aim && sk.aim !== 'spread')) dmg *= single ? COVER[t.row] : AOE_FALL[t.row];
     if (b && b.turn - (b.rage0 || 0) > ENRAGE) dmg *= 1 + (b.turn - (b.rage0 || 0) - ENRAGE) / 40; // Rage : les combats interminables finissent par se décider
@@ -2800,7 +2816,8 @@ window.GAME_DATA = {"evoItems":{"auspicious-armor":"Armure de la Fortune","black
     if (u.mark && --u.mark.turns <= 0) u.mark = null;
     if (u.ail && u.alive) {
       if (u.ail.k === 'BRU' || u.ail.k === 'PSN') {
-        const h = Math.round(u.maxHp * (u.ail.k === 'PSN' ? 0.08 : 0.06));
+        const src = u.ail.src && b.units.find(x => x.uid === u.ail.src), ven = u.ail.k === 'PSN' && src ? (src.passives.venom || 0) : 0;
+        const h = Math.round(u.maxHp * (u.ail.k === 'PSN' ? 0.08 : 0.06) * (1 + ven / 100));
         u.hp = Math.max(0, u.hp - h); log.push({ k: 'dmg', who: u.uid, amount: h, dot: u.ail.k, src: u.ail.src });
         if (u.hp <= 0) fall(b, u, log);
       }
